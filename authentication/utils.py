@@ -187,7 +187,7 @@ def send_activation_email(email, otp_code, activation_link):
     email.attach_alternative(html_content, "text/html")
     email.send()
 
-def send_password_reset_sms(phone_number, otp_code):
+def send_whatsapp_message(phone_number, otp_code):
     """
     Envoie un SMS de réinitialisation de mot de passe via WhatsApp.
 

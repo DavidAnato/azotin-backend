@@ -36,48 +36,23 @@ class UserSerializer(serializers.ModelSerializer):
         if reviews:
             return sum(review.rating for review in reviews if review.rating) / len(reviews)
         return None
+    
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Serializer for registering a new user.
     """
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name', 'phone_number', 'password']
-        extra_kwargs = {
-            'password': {'write_only': True},
-            'first_name': {'required': True},
-            'phone_number': {'required': True},
-        }
+        fields = ['first_name', 'last_name', 'phone_number', 'password']
 
-    def validate_email(self, value):
-        """
-        Validate that the email is unique.
-        """
-        if value and User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Un utilisateur avec cet email existe déjà.")
-        return value
+class PhoneNumberValidateConfirmSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    otp_code = serializers.CharField(min_length=5, max_length=5)
 
-    def validate_phone_number(self, value):
-        """
-        Validate that the phone number is unique.
-        """
-        if User.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError("Un utilisateur avec ce numéro de téléphone existe déjà.")
-        return value
-
-    def create(self, validated_data):
-        """
-        Create a new user with the validated data.
-        """
-        user = User(
-            email=validated_data.get('email'),
-            first_name=validated_data['first_name'],
-            last_name=validated_data.get('last_name', ''),
-            phone_number=validated_data['phone_number']
-        )
-        user.set_password(validated_data['password'])
-        user.save()
-        return user
+class CodePINSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['code_PIN']
 
 class OTPVerificationSerializer(serializers.Serializer):
     """
@@ -148,6 +123,13 @@ class GoogleLoginSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("Authorization code is required.")
         return value
+
+class WhatsAppLoginSerializer(serializers.Serializer):
+    """
+    Serializer for WhatsApp login.
+    """
+    phone_number = serializers.CharField()
+    code_PIN = serializers.CharField(min_length=4, max_length=4, required=False)
 
 class ChangePasswordSerializer(serializers.Serializer):
     """

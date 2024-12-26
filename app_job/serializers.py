@@ -1,6 +1,19 @@
 from rest_framework import serializers
 from .models import JobOffer, JobApplication, Job
 from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
+from app_job.models import Category, SubCategory
+
+### Category Serializer
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description']
+
+### SubCategory Serializer
+class SubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubCategory
+        fields = ['id', 'name', 'description']
 
 ### JobOffer Serializer
 class JobOfferSerializer(serializers.ModelSerializer):

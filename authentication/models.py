@@ -2,19 +2,20 @@ import os
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 from .managers import CustomUserManager
-from io import BytesIO
-from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.files.storage import default_storage
 from django.utils.text import slugify
 from .utils import *
-
+from app_job.models import Category
 import random
-from django.core.exceptions import ValidationError
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom User model extending AbstractBaseUser and PermissionsMixin.
     """
+
+    # Category
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="users", null=True, blank=True)
+
     # Personal Information
     email = models.EmailField("Email Address", unique=True, max_length=255, blank=True, null=True)
     first_name = models.CharField("First Name", max_length=100)
@@ -31,6 +32,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     city = models.CharField(max_length=100, blank=True)
     country = models.CharField(max_length=100, blank=True)
 
+    # Security Information
+    code_PIN = models.CharField(max_length=4, null=True, blank=True)
+    
     # Account Information
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

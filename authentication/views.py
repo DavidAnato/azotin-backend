@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # Local imports
-from .utils import send_activation_email, send_password_reset_email, send_password_reset_sms
+from .utils import send_activation_email, send_password_reset_email, send_whatsapp_message
 from .serializers import *
 User = get_user_model()
 
@@ -24,24 +24,37 @@ class UserRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        if user.email:
+        if user.phone_number:
             # Generate OTP
             otp_code = get_random_string(length=5, allowed_chars='1234567890')
+            user.is_active = False
             user.otp_code = otp_code
             user.otp_generated_at = timezone.now()
             user.save()
 
-            # Generate activation link
-            activation_link = self.request.build_absolute_uri(reverse('activate-email')) + f'?otp_code={otp_code}&email={user.email}'
-
             # Send email with OTP and activation link
-            send_activation_email(user.email, otp_code, activation_link)
+            send_whatsapp_message(user.phone_number, otp_code)
             
             # Return success message for email case
             return Response({'message': 'Activation email has been sent successfully.'}, status=status.HTTP_201_CREATED)
-        else:
-            # Return success message for non-email case
-            return Response({'message': 'User registered successfully without email.'}, status=status.HTTP_201_CREATED)
+
+class PhoneNumberValidateConfirmView(generics.CreateAPIView):
+    serializer_class = PhoneNumberValidateConfirmSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        phone_number = serializer.validated_data['phone_number']
+        otp_code = serializer.validated_data['otp_code']
+
+        try:
+            user = User.objects.get(phone_number=phone_number)
+            if user.otp_code != otp_code:
+                return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_active = True
+            user.save()
+        except User.DoesNotExist:
+            return Response({"error": "User with this phone number not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class EmailValidateRequestView(generics.CreateAPIView):
     serializer_class = EmailValidateRequestSerializer
@@ -283,7 +296,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
             if '@' in email_or_phone:
                 send_password_reset_email(user.email, otp_code)
             else:
-                send_password_reset_sms(user.phone_number, otp_code)
+                send_whatsapp_message(user.phone_number, otp_code)
 
             return Response({"detail": "OTP sent successfully."}, status=status.HTTP_200_OK)
 
@@ -338,3 +351,37 @@ class UserProfileView(generics.RetrieveAPIView):
 
     def get_object(self):
         return self.request.user
+
+# Créer une vue CRUD pour le code PIN
+class CodePINCreateView(generics.CreateAPIView):
+    serializer_class = CodePINSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+class CodePINUpdateView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CodePINSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+# Authentifier (login) les utilisateurs avec leur Numéro WhatsApp et leur code PIN si aucune empreinte n'est disponible.
+class WhatsAppLoginView(generics.GenericAPIView):
+    serializer_class = WhatsAppLoginSerializer
+    permission_classes = [permissions.AllowAny]
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+
+        # Generate JWT token
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        return Response({
+            "refresh": str(refresh),
+            "access": access_token,
+        }, status=status.HTTP_200_OK)
+

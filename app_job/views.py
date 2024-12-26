@@ -2,18 +2,38 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-
+from django.db.models import Q
 from app_profile.models import ClientProfile, WorkerProfile
-from .models import JobOffer, JobApplication, Job
-from .serializers import JobOfferSerializer, JobApplicationSerializer, JobSerializer
+from .models import JobOffer, JobApplication, Job, Category, SubCategory
+from .serializers import JobOfferSerializer, JobApplicationSerializer, JobSerializer, CategorySerializer, SubCategorySerializer
 from rest_framework.exceptions import PermissionDenied
 
+from rest_framework.pagination import PageNumberPagination
+from django.contrib.gis.geos import Point
+from django.contrib.gis.measure import D
+
+# Pagination
+class JobPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+### Category Views
+class CategoryListView(generics.ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+class SubCategoryListView(generics.ListAPIView):
+    queryset = SubCategory.objects.all()
+    serializer_class = SubCategorySerializer
 
 ### Job Offer Views
 class JobOfferListCreateView(generics.ListCreateAPIView):
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
 
     def perform_create(self, serializer):
         client_profile = ClientProfile.objects.get(user=self.request.user)
@@ -34,6 +54,7 @@ class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
 class JobApplicationListCreateView(generics.ListCreateAPIView):
     serializer_class = JobApplicationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
 
     def get_queryset(self):
         return JobApplication.objects.filter(job_offer__id=self.kwargs['job_offer_id'])
@@ -97,3 +118,119 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
         if job.client.user != self.request.user and job.worker.user != self.request.user:
             raise PermissionDenied("You are not allowed to access this job.")
         return job
+
+### Job Favorite Views
+class JobFavoriteListView(generics.ListAPIView):
+    queryset = JobOffer.objects.all()
+    serializer_class = JobOfferSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
+
+    def get_queryset(self):
+        return JobOffer.objects.filter(job_favorites__user=self.request.user)
+    
+# l'historique des emplois
+class JobHistoryListView(generics.ListAPIView):
+    queryset = Job.objects.all()
+    serializer_class = JobSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
+
+    def get_queryset(self):
+        return Job.objects.filter(client=self.request.user)
+    
+# emplois suggérés
+class JobSuggestionListView(generics.ListAPIView):
+    queryset = JobOffer.objects.all()
+    serializer_class = JobOfferSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
+
+    def get_queryset(self):
+        if self.request.user.category:
+            return JobOffer.objects.filter(category=self.request.user.category, location__distance_lte=(self.request.user.location, D(km=10)))
+        else:
+            return JobOffer.objects.all()
+        
+# Recherche de jobs par les champs suivants :
+# title
+# description
+# catégorie
+# sous-catégorie
+# Filtres par les champs suivants :
+# - catégorie
+# - sous-catégorie
+# - localisation
+# - prix minimum
+# - prix maximum
+# - date de service
+# - type de contrat
+
+# Recherche de jobs par les champs suivants :
+# - query (prend en compte title, description, category, sub_category)
+# Filtres par les champs suivants :
+# - catégorie
+# - sous-catégorie
+# - localisation
+# - prix minimum
+# - prix maximum
+# - date de service
+# - type de contrat
+
+class JobSearchView(generics.ListAPIView):
+    serializer_class = JobOfferSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
+
+    def get_queryset(self):
+        # Commence avec tous les objets JobOffer
+        queryset = JobOffer.objects.all()
+
+        # Recherche globale avec ?query
+        query = self.request.query_params.get('query')
+        if query:
+            queryset = queryset.filter(
+                Q(title__icontains=query) |  # Recherche dans le titre
+                Q(description__icontains=query) |  # Recherche dans la description
+                Q(category__name__icontains=query) |  # Recherche dans le nom de la catégorie
+                Q(sub_category__name__icontains=query)  # Recherche dans le nom de la sous-catégorie
+            )
+
+        # Filtres supplémentaires
+        # Filtrage exact basé sur le nom de la catégorie
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category__name__iexact=category)
+
+        # Filtrage exact basé sur le nom de la sous-catégorie
+        sub_category = self.request.query_params.get('sub_category')
+        if sub_category:
+            queryset = queryset.filter(sub_category__name__iexact=sub_category)
+
+        # Recherche partielle par localisation
+        location = self.request.query_params.get('location')
+        if location:
+            queryset = queryset.filter(location__icontains=location)
+
+        # Filtrer les jobs dont le prix est supérieur ou égal au minimum spécifié
+        min_price = self.request.query_params.get('min_price')
+        if min_price:
+            queryset = queryset.filter(price__gte=min_price)
+
+        # Filtrer les jobs dont le prix est inférieur ou égal au maximum spécifié
+        max_price = self.request.query_params.get('max_price')
+        if max_price:
+            queryset = queryset.filter(price__lte=max_price)
+
+        # Filtrer les jobs pour une date de service exacte
+        service_date = self.request.query_params.get('service_date')
+        if service_date:
+            queryset = queryset.filter(service_date=service_date)
+
+        # Filtrer les jobs par type de contrat
+        contract_type = self.request.query_params.get('contract_type')
+        if contract_type:
+            queryset = queryset.filter(contract_type__iexact=contract_type)
+
+        # Retourne le queryset filtré
+        return queryset
