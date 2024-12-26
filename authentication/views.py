@@ -1,3 +1,4 @@
+import json
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -5,10 +6,12 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.shortcuts import redirect
 
-# Third-party imports
+# Third-party imports   
 import requests
+from app_profile.models import ClientProfile, WorkerProfile
 from rest_framework import views, generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # Local imports
@@ -19,45 +22,87 @@ User = get_user_model()
 class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        
+        # Créer le profil en fonction du type de profil
+        profile_type = serializer.validated_data.get('profile_type')
+        if profile_type == 'worker':
+            WorkerProfile.objects.create(user=user)
+        elif profile_type == 'employer':
+            ClientProfile.objects.create(user=user)
+
         if user.phone_number:
-            # Generate OTP
+            # Générer un OTP
             otp_code = get_random_string(length=5, allowed_chars='1234567890')
             user.is_active = False
             user.otp_code = otp_code
             user.otp_generated_at = timezone.now()
             user.save()
 
-            # Send email with OTP and activation link
+            # Envoyer un message WhatsApp avec l'OTP
             send_whatsapp_message(user.phone_number, otp_code)
             
-            # Return success message for email case
-            return Response({'message': 'Activation email has been sent successfully.'}, status=status.HTTP_201_CREATED)
+        # Retourner une réponse de succès
+        return Response({'message': 'Activation email has been sent successfully.'}, status=status.HTTP_201_CREATED)
 
-class PhoneNumberValidateConfirmView(generics.CreateAPIView):
-    serializer_class = PhoneNumberValidateConfirmSerializer
+class PhoneNumberValidateRequestView(generics.CreateAPIView):
+    serializer_class = PhoneNumberValidateRequestSerializer
+    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone_number = serializer.validated_data['phone_number']
+        user = User.objects.get(phone_number=phone_number)
+        otp_code = get_random_string(length=5, allowed_chars='1234567890')
+        user.otp_code = otp_code
+        user.otp_generated_at = timezone.now()
+        user.save()
+        send_whatsapp_message(phone_number, otp_code)
+        return Response({"message": "Phone number validated successfully."}, status=status.HTTP_200_OK)
+
+class PhoneNumberValidateConfirmView(generics.CreateAPIView):
+    serializer_class = PhoneNumberValidateConfirmSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        # Initialiser le sérialiseur avec les données de la requête
+        serializer = self.get_serializer(data=request.data)
+        
+        # Vérifier que les données sont valides
+        serializer.is_valid(raise_exception=True)
+        
+        # Extraire le numéro de téléphone et le code OTP
+        phone_number = serializer.validated_data['phone_number']
         otp_code = serializer.validated_data['otp_code']
 
         try:
+            # Vérifier si un utilisateur existe avec ce numéro de téléphone
             user = User.objects.get(phone_number=phone_number)
+            
+            # Comparer l'OTP envoyé avec celui de l'utilisateur
             if user.otp_code != otp_code:
                 return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Activer l'utilisateur si l'OTP est valide
             user.is_active = True
             user.save()
+            
+            # Retourner une réponse réussie une fois l'utilisateur activé
+            return Response({"message": "Phone number validated successfully."}, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
+            # Retourner une erreur si aucun utilisateur n'est trouvé avec ce numéro de téléphone
             return Response({"error": "User with this phone number not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class EmailValidateRequestView(generics.CreateAPIView):
     serializer_class = EmailValidateRequestSerializer
+    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -132,9 +177,13 @@ class LoginView(generics.GenericAPIView):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
+        user_serializer = UserSerializer(user)
+        user_data = user_serializer.data
+
         return Response({
             "refresh": str(refresh),
             "access": access_token,
+            "user": user_data,
         }, status=status.HTTP_200_OK)
 
 class GoogleLoginView(generics.GenericAPIView):
@@ -210,9 +259,12 @@ class GoogleLoginView(generics.GenericAPIView):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
+        user_serializer = UserSerializer(user)
+        user_data = user_serializer.data
         return Response({
             "refresh": str(refresh),
             "access": access_token,
+            "user": user_data,
         }, status=status.HTTP_200_OK)
 
 class ChangePasswordView(generics.UpdateAPIView):
@@ -357,8 +409,16 @@ class CodePINCreateView(generics.CreateAPIView):
     serializer_class = CodePINSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        print(user)
+        code_pin = request.data.get('code_pin')
+        print(code_pin)
+        user.code_pin = code_pin
+        user.save()
+        print(user.code_pin)
+        return Response({'detail': 'Code PIN created successfully.'}, status=status.HTTP_201_CREATED)
+
 
 class CodePINUpdateView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CodePINSerializer
@@ -368,20 +428,47 @@ class CodePINUpdateView(generics.RetrieveUpdateDestroyAPIView):
         return self.request.user
 
 # Authentifier (login) les utilisateurs avec leur Numéro WhatsApp et leur code PIN si aucune empreinte n'est disponible.
-class WhatsAppLoginView(generics.GenericAPIView):
-    serializer_class = WhatsAppLoginSerializer
+class PINLoginView(generics.GenericAPIView):
+    serializer_class = PINLoginSerializer
     permission_classes = [permissions.AllowAny]
+
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
 
-        # Generate JWT token
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
+        phone_number = serializer.validated_data.get('phone_number')
+        code_pin = serializer.validated_data.get('code_pin')
 
-        return Response({
-            "refresh": str(refresh),
-            "access": access_token,
-        }, status=status.HTTP_200_OK)
+        try:
+            user = User.objects.get(phone_number=phone_number)
 
+            if code_pin and user.code_PIN != code_pin:
+                print(code_pin)
+                print(user.code_PIN)
+                return Response({'code_pin': 'Invalid PIN'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate JWT token
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            # Utilisez le sérialiseur pour convertir l'objet utilisateur en dictionnaire
+            user_serializer = UserSerializer(user)
+            user_data = user_serializer.data
+
+            return Response({
+                "refresh": str(refresh),
+                "access": access_token,
+                "user": user_data,
+            }, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+class CheckPhoneNumberView(APIView):
+    permission_classes = [permissions.AllowAny]
+    # check if phone number exist send true or false
+    # c'est methode post
+    def post(self, request, *args, **kwargs):
+        phone_number = request.data.get('phone_number')
+        user = User.objects.filter(phone_number=phone_number).exists()
+        return Response({'exists': user}, status=status.HTTP_200_OK)

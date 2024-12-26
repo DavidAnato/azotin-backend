@@ -43,7 +43,10 @@ class RegisterSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'phone_number', 'password']
+        fields = ['first_name', 'last_name', 'phone_number']
+
+class PhoneNumberValidateRequestSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
 
 class PhoneNumberValidateConfirmSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
@@ -52,7 +55,7 @@ class PhoneNumberValidateConfirmSerializer(serializers.Serializer):
 class CodePINSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['code_PIN']
+        fields = ['code_pin']
 
 class OTPVerificationSerializer(serializers.Serializer):
     """
@@ -124,12 +127,12 @@ class GoogleLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Authorization code is required.")
         return value
 
-class WhatsAppLoginSerializer(serializers.Serializer):
+class PINLoginSerializer(serializers.Serializer):
     """
-    Serializer for WhatsApp login.
+    Serializer for PIN login.
     """
     phone_number = serializers.CharField()
-    code_PIN = serializers.CharField(min_length=4, max_length=4, required=False)
+    code_pin = serializers.CharField(min_length=4, max_length=4, required=False)
 
 class ChangePasswordSerializer(serializers.Serializer):
     """

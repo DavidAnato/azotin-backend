@@ -1,6 +1,6 @@
-from app_profile.models import ClientProfile, WorkerProfile
 from django.db import models
 from django.contrib.auth import get_user_model
+
 User = get_user_model()
 
 class Category(models.Model):
@@ -15,7 +15,7 @@ class SubCategory(models.Model):
 class JobOffer(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="job_offers")
     sub_category = models.ForeignKey(SubCategory, on_delete=models.CASCADE, related_name="job_offers")
-    client = models.ForeignKey(ClientProfile, on_delete=models.CASCADE, related_name="job_offers")
+    client = models.ForeignKey('app_profile.ClientProfile', on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     description = models.TextField()
     responsability = models.TextField()
@@ -57,7 +57,7 @@ class JobOffer(models.Model):
 
 class JobApplication(models.Model):
     job_offer = models.ForeignKey(JobOffer, on_delete=models.CASCADE, related_name="applications")
-    worker = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name="job_applications")
+    worker = models.ForeignKey('app_profile.WorkerProfile', on_delete=models.CASCADE, related_name="job_applications")
     proposed_price = models.DecimalField(max_digits=9, decimal_places=2)
     cover_letter = models.TextField(blank=True, help_text="Optional cover letter by the worker.")
     status = models.CharField(
@@ -76,8 +76,8 @@ class JobApplication(models.Model):
 
 class Job(models.Model):
     job_offer = models.OneToOneField(JobOffer, on_delete=models.CASCADE, related_name="job", help_text="The related job offer.")
-    client = models.ForeignKey(ClientProfile, on_delete=models.CASCADE, related_name="assigned_jobs")
-    worker = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name="assigned_jobs")
+    client = models.ForeignKey('app_profile.ClientProfile', on_delete=models.CASCADE, related_name="assigned_jobs")
+    worker = models.ForeignKey('app_profile.WorkerProfile', on_delete=models.CASCADE, related_name="assigned_jobs")
     description = models.TextField()
     location = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=9, decimal_places=2)

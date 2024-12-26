@@ -9,7 +9,6 @@ from .serializers import JobOfferSerializer, JobApplicationSerializer, JobSerial
 from rest_framework.exceptions import PermissionDenied
 
 from rest_framework.pagination import PageNumberPagination
-from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 
 # Pagination

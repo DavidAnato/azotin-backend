@@ -5,7 +5,6 @@ from .managers import CustomUserManager
 from django.core.files.storage import default_storage
 from django.utils.text import slugify
 from .utils import *
-from app_job.models import Category
 import random
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -14,7 +13,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
 
     # Category
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="users", null=True, blank=True)
+    category = models.ForeignKey('app_job.Category', on_delete=models.CASCADE, related_name="users", null=True, blank=True)
 
     # Personal Information
     email = models.EmailField("Email Address", unique=True, max_length=255, blank=True, null=True)
@@ -33,7 +32,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     country = models.CharField(max_length=100, blank=True)
 
     # Security Information
-    code_PIN = models.CharField(max_length=4, null=True, blank=True)
+    code_pin = models.CharField(max_length=4, null=True, blank=True)
     
     # Account Information
     is_active = models.BooleanField(default=True)
