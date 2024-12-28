@@ -7,7 +7,6 @@ from django.db import models
 from django.utils.text import slugify
 
 from .managers import CustomUserManager
-from .utils import *
 
 
 class User(AbstractBaseUser, PermissionsMixin):

@@ -1,14 +1,12 @@
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from .models import ClientProfile, WorkerProfile
 from .serializers import ClientProfileSerializer, WorkerProfileSerializer
 
 
-### Worker Profile Views
+# Worker Profile Views
 class WorkerProfileListCreateView(generics.ListCreateAPIView):
     queryset = WorkerProfile.objects.all()
     serializer_class = WorkerProfileSerializer
@@ -30,7 +28,7 @@ class WorkerProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
         return worker_profile
 
 
-### Client Profile Views
+# Client Profile Views
 class ClientProfileListCreateView(generics.ListCreateAPIView):
     queryset = ClientProfile.objects.all()
     serializer_class = ClientProfileSerializer

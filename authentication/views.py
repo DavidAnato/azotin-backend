@@ -1,5 +1,3 @@
-import json
-
 # Third-party imports
 import requests
 from django.conf import settings
@@ -13,11 +11,26 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+# Local imports
 from app_profile.models import ClientProfile, WorkerProfile
 
-from .serializers import *
+from .serializers import (
+    UserSerializer,
+    RegisterSerializer,
+    PhoneNumberValidateRequestSerializer,
+    PhoneNumberValidateConfirmSerializer,
+    EmailValidateRequestSerializer,
+    OTPVerificationSerializer,
+    LoginSerializer,
+    GoogleLoginSerializer,
+    ChangePasswordSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+    CodePINSerializer,
+    PINLoginSerializer,
+    UserProfileSerializer,
+)
 
-# Local imports
 from .utils import (
     send_activation_email,
     send_password_reset_email,
