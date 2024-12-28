@@ -8,163 +8,236 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('authentication', '0002_remove_user_picture'),
+        ("authentication", "0002_remove_user_picture"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='user',
-            old_name='has_badge',
-            new_name='is_certified',
+            model_name="user",
+            old_name="has_badge",
+            new_name="is_certified",
         ),
         migrations.RenameField(
-            model_name='user',
-            old_name='latitude',
-            new_name='localisation_latitude',
+            model_name="user",
+            old_name="latitude",
+            new_name="localisation_latitude",
         ),
         migrations.RenameField(
-            model_name='user',
-            old_name='longitude',
-            new_name='localisation_longitude',
+            model_name="user",
+            old_name="longitude",
+            new_name="localisation_longitude",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='add_count',
+            model_name="user",
+            name="add_count",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='education',
+            model_name="user",
+            name="education",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='facebook_name',
+            model_name="user",
+            name="facebook_name",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='facebook_urls',
+            model_name="user",
+            name="facebook_urls",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='instagram_name',
+            model_name="user",
+            name="instagram_name",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='instagram_urls',
+            model_name="user",
+            name="instagram_urls",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='is_subscription_manager',
+            model_name="user",
+            name="is_subscription_manager",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='linkedin_name',
+            model_name="user",
+            name="linkedin_name",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='linkedin_urls',
+            model_name="user",
+            name="linkedin_urls",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='other_name',
+            model_name="user",
+            name="other_name",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='other_urls',
+            model_name="user",
+            name="other_urls",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='profession',
+            model_name="user",
+            name="profession",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='pub_count',
+            model_name="user",
+            name="pub_count",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='relationship_status',
+            model_name="user",
+            name="relationship_status",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='subscription_start_date',
+            model_name="user",
+            name="subscription_start_date",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='subscription_type',
+            model_name="user",
+            name="subscription_type",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='twitter_name',
+            model_name="user",
+            name="twitter_name",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='twitter_urls',
+            model_name="user",
+            name="twitter_urls",
         ),
         migrations.AddField(
-            model_name='user',
-            name='bg_color',
-            field=models.CharField(blank=True, default='#FFFFFF', max_length=10),
+            model_name="user",
+            name="bg_color",
+            field=models.CharField(blank=True, default="#FFFFFF", max_length=10),
         ),
         migrations.AddField(
-            model_name='user',
-            name='rating',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=3, null=True),
+            model_name="user",
+            name="rating",
+            field=models.DecimalField(
+                blank=True, decimal_places=2, max_digits=3, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='testimonials',
+            model_name="user",
+            name="testimonials",
             field=models.TextField(blank=True, max_length=1000),
         ),
         migrations.AddField(
-            model_name='user',
-            name='text_color',
-            field=models.CharField(blank=True, default='#000000', max_length=10),
+            model_name="user",
+            name="text_color",
+            field=models.CharField(blank=True, default="#000000", max_length=10),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='gender',
-            field=models.CharField(blank=True, choices=[('male', 'Homme'), ('female', 'Femme')], max_length=10),
+            model_name="user",
+            name="gender",
+            field=models.CharField(
+                blank=True,
+                choices=[("male", "Homme"), ("female", "Femme")],
+                max_length=10,
+            ),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='phone_number',
+            model_name="user",
+            name="phone_number",
             field=models.CharField(max_length=20, unique=True),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='theme_mode',
-            field=models.CharField(choices=[('dark_mode', 'dark'), ('light_mode', 'light')], default='light_mode', max_length=10),
+            model_name="user",
+            name="theme_mode",
+            field=models.CharField(
+                choices=[("dark_mode", "dark"), ("light_mode", "light")],
+                default="light_mode",
+                max_length=10,
+            ),
         ),
         migrations.CreateModel(
-            name='ClientProfile',
+            name="ClientProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('preferred_payment_method', models.CharField(blank=True, max_length=50)),
-                ('total_jobs_posted', models.IntegerField(default=0)),
-                ('job_completion_rate', models.DecimalField(blank=True, decimal_places=2, max_digits=5, null=True)),
-                ('average_spent', models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
-                ('loyalty_points', models.IntegerField(default=0)),
-                ('service_name', models.CharField(blank=True, max_length=100)),
-                ('service_type', models.CharField(blank=True, choices=[('home', 'Home'), ('business', 'Business')], max_length=10)),
-                ('service_description', models.TextField(blank=True, max_length=1000)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='client_profile', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "preferred_payment_method",
+                    models.CharField(blank=True, max_length=50),
+                ),
+                ("total_jobs_posted", models.IntegerField(default=0)),
+                (
+                    "job_completion_rate",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=5, null=True
+                    ),
+                ),
+                (
+                    "average_spent",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=10, null=True
+                    ),
+                ),
+                ("loyalty_points", models.IntegerField(default=0)),
+                ("service_name", models.CharField(blank=True, max_length=100)),
+                (
+                    "service_type",
+                    models.CharField(
+                        blank=True,
+                        choices=[("home", "Home"), ("business", "Business")],
+                        max_length=10,
+                    ),
+                ),
+                ("service_description", models.TextField(blank=True, max_length=1000)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="client_profile",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='WorkerProfile',
+            name="WorkerProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(blank=True, max_length=100)),
-                ('skills', models.TextField(blank=True, max_length=500)),
-                ('experience', models.IntegerField(default=0, help_text='Years of experience')),
-                ('hourly_rate', models.DecimalField(blank=True, decimal_places=2, max_digits=6, null=True)),
-                ('certifications', models.TextField(blank=True, max_length=500)),
-                ('available_for_hire', models.BooleanField(default=True)),
-                ('total_jobs_completed', models.IntegerField(default=0)),
-                ('previous_work_photos', models.ImageField(blank=True, null=True, upload_to='worker_photos/')),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='worker_profile', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(blank=True, max_length=100)),
+                ("skills", models.TextField(blank=True, max_length=500)),
+                (
+                    "experience",
+                    models.IntegerField(default=0, help_text="Years of experience"),
+                ),
+                (
+                    "hourly_rate",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=6, null=True
+                    ),
+                ),
+                ("certifications", models.TextField(blank=True, max_length=500)),
+                ("available_for_hire", models.BooleanField(default=True)),
+                ("total_jobs_completed", models.IntegerField(default=0)),
+                (
+                    "previous_work_photos",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="worker_photos/"
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="worker_profile",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.DeleteModel(
-            name='ProfileVisibility',
+            name="ProfileVisibility",
         ),
     ]

@@ -1,11 +1,12 @@
 from rest_framework import generics, status
-from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import WorkerProfile, ClientProfile
-from .serializers import WorkerProfileSerializer, ClientProfileSerializer
-from rest_framework.exceptions import PermissionDenied
+from .models import ClientProfile, WorkerProfile
+from .serializers import ClientProfileSerializer, WorkerProfileSerializer
+
 
 ### Worker Profile Views
 class WorkerProfileListCreateView(generics.ListCreateAPIView):
@@ -15,6 +16,7 @@ class WorkerProfileListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
 
 class WorkerProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = WorkerProfile.objects.all()
@@ -27,6 +29,7 @@ class WorkerProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise PermissionDenied("You are not allowed to access this Worker Profile.")
         return worker_profile
 
+
 ### Client Profile Views
 class ClientProfileListCreateView(generics.ListCreateAPIView):
     queryset = ClientProfile.objects.all()
@@ -35,6 +38,7 @@ class ClientProfileListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
 
 class ClientProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ClientProfile.objects.all()

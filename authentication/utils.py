@@ -1,7 +1,8 @@
-from PIL import Image
+from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
-from django.conf import settings
+from PIL import Image
+
 
 def resize_and_crop(image_path, size):
     """
@@ -31,6 +32,7 @@ def resize_and_crop(image_path, size):
 
     return resized_image
 
+
 def convert_png_to_jpeg(image_path):
     """
     Convertit une image PNG en JPEG.
@@ -38,12 +40,13 @@ def convert_png_to_jpeg(image_path):
     :param image_path: Chemin vers l'image PNG.
     """
     image = Image.open(image_path)
-    
+
     # Convertir l'image en mode RGB (supprimer le canal alpha)
-    image = image.convert('RGB')
-    
+    image = image.convert("RGB")
+
     # Enregistrer l'image convertie en JPEG
-    image.save(image_path, format='JPEG')
+    image.save(image_path, format="JPEG")
+
 
 def send_password_reset_email(email, otp_code):
     """
@@ -52,7 +55,7 @@ def send_password_reset_email(email, otp_code):
     :param email: Adresse email du destinataire.
     :param otp_code: Code OTP pour la réinitialisation du mot de passe.
     """
-    subject = 'Password Reset Request'
+    subject = "Password Reset Request"
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -108,10 +111,15 @@ def send_password_reset_email(email, otp_code):
     </body>
     </html>
     """
-    text_content = strip_tags(html_content)  # Strip the HTML tags to get the text version
-    email = EmailMultiAlternatives(subject, text_content, from_email=settings.EMAIL_HOST_USER, to=[email])
+    text_content = strip_tags(
+        html_content
+    )  # Strip the HTML tags to get the text version
+    email = EmailMultiAlternatives(
+        subject, text_content, from_email=settings.EMAIL_HOST_USER, to=[email]
+    )
     email.attach_alternative(html_content, "text/html")
     email.send()
+
 
 def send_activation_email(email, otp_code, activation_link):
     """
@@ -121,7 +129,7 @@ def send_activation_email(email, otp_code, activation_link):
     :param otp_code: Code OTP pour l'activation du compte.
     :param activation_link: Lien d'activation du compte.
     """
-    subject = 'Activate Your Account'
+    subject = "Activate Your Account"
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -182,10 +190,15 @@ def send_activation_email(email, otp_code, activation_link):
     </body>
     </html>
     """
-    text_content = strip_tags(html_content)  # Strip the HTML tags to get the text version
-    email = EmailMultiAlternatives(subject, text_content, from_email=settings.EMAIL_HOST_USER, to=[email])
+    text_content = strip_tags(
+        html_content
+    )  # Strip the HTML tags to get the text version
+    email = EmailMultiAlternatives(
+        subject, text_content, from_email=settings.EMAIL_HOST_USER, to=[email]
+    )
     email.attach_alternative(html_content, "text/html")
     email.send()
+
 
 def send_whatsapp_message(phone_number, otp_code):
     """
@@ -194,7 +207,7 @@ def send_whatsapp_message(phone_number, otp_code):
     :param phone_number: Numéro de téléphone du destinataire.
     :param otp_code: Code OTP pour la réinitialisation du mot de passe.
     """
-    subject = 'Password Reset Request via WhatsApp'
+    subject = "Password Reset Request via WhatsApp"
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -244,7 +257,14 @@ def send_whatsapp_message(phone_number, otp_code):
     </body>
     </html>
     """
-    text_content = strip_tags(html_content)  # Strip the HTML tags to get the text version
-    email = EmailMultiAlternatives(subject, text_content, from_email=settings.EMAIL_HOST_USER, to=['david1anato@gmail.com'])
+    text_content = strip_tags(
+        html_content
+    )  # Strip the HTML tags to get the text version
+    email = EmailMultiAlternatives(
+        subject,
+        text_content,
+        from_email=settings.EMAIL_HOST_USER,
+        to=["david1anato@gmail.com"],
+    )
     email.attach_alternative(html_content, "text/html")
     email.send()

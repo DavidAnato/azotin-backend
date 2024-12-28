@@ -10,86 +10,246 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('auth', '0012_alter_user_first_name_max_length'),
+        ("auth", "0012_alter_user_first_name_max_length"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='User',
+            name="User",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('password', models.CharField(max_length=128, verbose_name='password')),
-                ('is_superuser', models.BooleanField(default=False, help_text='Designates that this user has all permissions without explicitly assigning them.', verbose_name='superuser status')),
-                ('email', models.EmailField(blank=True, max_length=255, null=True, unique=True, verbose_name='Email Address')),
-                ('first_name', models.CharField(max_length=100, verbose_name='First Name')),
-                ('last_name', models.CharField(blank=True, max_length=100, null=True, verbose_name='Last Name')),
-                ('is_active', models.BooleanField(default=True)),
-                ('is_staff', models.BooleanField(default=False)),
-                ('date_joined', models.DateTimeField(auto_now_add=True)),
-                ('last_login', models.DateTimeField(auto_now=True)),
-                ('google_id', models.CharField(blank=True, max_length=255, null=True, verbose_name='Google ID')),
-                ('picture_url', models.URLField(blank=True, null=True, verbose_name='Picture URL')),
-                ('picture', models.ImageField(blank=True, null=True, upload_to='user_pictures/', verbose_name='Picture')),
-                ('verified_email', models.BooleanField(default=False, verbose_name='Verified Email')),
-                ('otp_code', models.CharField(blank=True, max_length=5, null=True, verbose_name='OTP Code')),
-                ('otp_generated_at', models.DateTimeField(blank=True, null=True, verbose_name='OTP Generated At')),
-                ('username', models.CharField(blank=True, max_length=100, null=True, unique=True)),
-                ('date_of_birth', models.DateField(blank=True, null=True)),
-                ('phone_number', models.CharField(max_length=15, unique=True)),
-                ('profile_picture', models.ImageField(blank=True, upload_to='profile_pictures/')),
-                ('bio', models.TextField(blank=True, max_length=500)),
-                ('gender', models.CharField(blank=True, choices=[('male', 'Homme'), ('female', 'Femme'), ('other', 'Autre')], max_length=10)),
-                ('city', models.CharField(blank=True, max_length=100)),
-                ('country', models.CharField(blank=True, max_length=100)),
-                ('profession', models.CharField(blank=True, max_length=100)),
-                ('education', models.CharField(blank=True, max_length=100)),
-                ('relationship_status', models.CharField(blank=True, choices=[('single', 'Célibataire'), ('in_a_relationship', 'En couple'), ('married', 'Marié(e)'), ('other', 'Autre')], max_length=20)),
-                ('online_status', models.BooleanField(default=False)),
-                ('facebook_name', models.CharField(blank=True, max_length=15)),
-                ('facebook_urls', models.URLField(blank=True)),
-                ('instagram_name', models.CharField(blank=True, max_length=15)),
-                ('instagram_urls', models.URLField(blank=True)),
-                ('twitter_name', models.CharField(blank=True, max_length=15)),
-                ('twitter_urls', models.URLField(blank=True)),
-                ('linkedin_name', models.CharField(blank=True, max_length=15)),
-                ('linkedin_urls', models.URLField(blank=True)),
-                ('other_name', models.CharField(blank=True, max_length=15)),
-                ('other_urls', models.URLField(blank=True)),
-                ('has_badge', models.BooleanField(default=False)),
-                ('theme_mode', models.CharField(choices=[('dark_mode', 'Mode Sombre'), ('light_mode', 'Mode Claire')], default='light_mode', max_length=10)),
-                ('subscription_type', models.CharField(choices=[('basic', 'Plan Basique (Gratuit)'), ('premium_plus', 'Plan Premium Plus'), ('premium_pro', 'Plan Premium Pro')], default='basic', max_length=20)),
-                ('subscription_start_date', models.DateTimeField(blank=True, null=True)),
-                ('add_count', models.IntegerField(default=0)),
-                ('pub_count', models.IntegerField(default=0)),
-                ('latitude', models.DecimalField(blank=True, decimal_places=6, max_digits=9, null=True)),
-                ('longitude', models.DecimalField(blank=True, decimal_places=6, max_digits=9, null=True)),
-                ('is_subscription_manager', models.BooleanField(default=False)),
-                ('groups', models.ManyToManyField(blank=True, help_text='The groups this user belongs to. A user will get all permissions granted to each of their groups.', related_name='user_set', related_query_name='user', to='auth.group', verbose_name='groups')),
-                ('user_permissions', models.ManyToManyField(blank=True, help_text='Specific permissions for this user.', related_name='user_set', related_query_name='user', to='auth.permission', verbose_name='user permissions')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("password", models.CharField(max_length=128, verbose_name="password")),
+                (
+                    "is_superuser",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Designates that this user has all permissions without explicitly assigning them.",
+                        verbose_name="superuser status",
+                    ),
+                ),
+                (
+                    "email",
+                    models.EmailField(
+                        blank=True,
+                        max_length=255,
+                        null=True,
+                        unique=True,
+                        verbose_name="Email Address",
+                    ),
+                ),
+                (
+                    "first_name",
+                    models.CharField(max_length=100, verbose_name="First Name"),
+                ),
+                (
+                    "last_name",
+                    models.CharField(
+                        blank=True, max_length=100, null=True, verbose_name="Last Name"
+                    ),
+                ),
+                ("is_active", models.BooleanField(default=True)),
+                ("is_staff", models.BooleanField(default=False)),
+                ("date_joined", models.DateTimeField(auto_now_add=True)),
+                ("last_login", models.DateTimeField(auto_now=True)),
+                (
+                    "google_id",
+                    models.CharField(
+                        blank=True, max_length=255, null=True, verbose_name="Google ID"
+                    ),
+                ),
+                (
+                    "picture_url",
+                    models.URLField(blank=True, null=True, verbose_name="Picture URL"),
+                ),
+                (
+                    "picture",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="user_pictures/",
+                        verbose_name="Picture",
+                    ),
+                ),
+                (
+                    "verified_email",
+                    models.BooleanField(default=False, verbose_name="Verified Email"),
+                ),
+                (
+                    "otp_code",
+                    models.CharField(
+                        blank=True, max_length=5, null=True, verbose_name="OTP Code"
+                    ),
+                ),
+                (
+                    "otp_generated_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="OTP Generated At"
+                    ),
+                ),
+                (
+                    "username",
+                    models.CharField(
+                        blank=True, max_length=100, null=True, unique=True
+                    ),
+                ),
+                ("date_of_birth", models.DateField(blank=True, null=True)),
+                ("phone_number", models.CharField(max_length=15, unique=True)),
+                (
+                    "profile_picture",
+                    models.ImageField(blank=True, upload_to="profile_pictures/"),
+                ),
+                ("bio", models.TextField(blank=True, max_length=500)),
+                (
+                    "gender",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("male", "Homme"),
+                            ("female", "Femme"),
+                            ("other", "Autre"),
+                        ],
+                        max_length=10,
+                    ),
+                ),
+                ("city", models.CharField(blank=True, max_length=100)),
+                ("country", models.CharField(blank=True, max_length=100)),
+                ("profession", models.CharField(blank=True, max_length=100)),
+                ("education", models.CharField(blank=True, max_length=100)),
+                (
+                    "relationship_status",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("single", "Célibataire"),
+                            ("in_a_relationship", "En couple"),
+                            ("married", "Marié(e)"),
+                            ("other", "Autre"),
+                        ],
+                        max_length=20,
+                    ),
+                ),
+                ("online_status", models.BooleanField(default=False)),
+                ("facebook_name", models.CharField(blank=True, max_length=15)),
+                ("facebook_urls", models.URLField(blank=True)),
+                ("instagram_name", models.CharField(blank=True, max_length=15)),
+                ("instagram_urls", models.URLField(blank=True)),
+                ("twitter_name", models.CharField(blank=True, max_length=15)),
+                ("twitter_urls", models.URLField(blank=True)),
+                ("linkedin_name", models.CharField(blank=True, max_length=15)),
+                ("linkedin_urls", models.URLField(blank=True)),
+                ("other_name", models.CharField(blank=True, max_length=15)),
+                ("other_urls", models.URLField(blank=True)),
+                ("has_badge", models.BooleanField(default=False)),
+                (
+                    "theme_mode",
+                    models.CharField(
+                        choices=[
+                            ("dark_mode", "Mode Sombre"),
+                            ("light_mode", "Mode Claire"),
+                        ],
+                        default="light_mode",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "subscription_type",
+                    models.CharField(
+                        choices=[
+                            ("basic", "Plan Basique (Gratuit)"),
+                            ("premium_plus", "Plan Premium Plus"),
+                            ("premium_pro", "Plan Premium Pro"),
+                        ],
+                        default="basic",
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "subscription_start_date",
+                    models.DateTimeField(blank=True, null=True),
+                ),
+                ("add_count", models.IntegerField(default=0)),
+                ("pub_count", models.IntegerField(default=0)),
+                (
+                    "latitude",
+                    models.DecimalField(
+                        blank=True, decimal_places=6, max_digits=9, null=True
+                    ),
+                ),
+                (
+                    "longitude",
+                    models.DecimalField(
+                        blank=True, decimal_places=6, max_digits=9, null=True
+                    ),
+                ),
+                ("is_subscription_manager", models.BooleanField(default=False)),
+                (
+                    "groups",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="The groups this user belongs to. A user will get all permissions granted to each of their groups.",
+                        related_name="user_set",
+                        related_query_name="user",
+                        to="auth.group",
+                        verbose_name="groups",
+                    ),
+                ),
+                (
+                    "user_permissions",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="Specific permissions for this user.",
+                        related_name="user_set",
+                        related_query_name="user",
+                        to="auth.permission",
+                        verbose_name="user permissions",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'User',
-                'verbose_name_plural': 'Users',
+                "verbose_name": "User",
+                "verbose_name_plural": "Users",
             },
         ),
         migrations.CreateModel(
-            name='ProfileVisibility',
+            name="ProfileVisibility",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_visible', models.BooleanField(default=True)),
-                ('display_date_of_birth', models.BooleanField(default=True)),
-                ('display_gender', models.BooleanField(default=True)),
-                ('display_city', models.BooleanField(default=True)),
-                ('display_facebook_name', models.BooleanField(default=True)),
-                ('display_instagram_name', models.BooleanField(default=True)),
-                ('display_twitter_name', models.BooleanField(default=True)),
-                ('display_linkedin_name', models.BooleanField(default=True)),
-                ('display_profession', models.BooleanField(default=True)),
-                ('display_education', models.BooleanField(default=True)),
-                ('display_relationship_status', models.BooleanField(default=True)),
-                ('display_online_status', models.BooleanField(default=True)),
-                ('display_badge', models.BooleanField(default=True)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("is_visible", models.BooleanField(default=True)),
+                ("display_date_of_birth", models.BooleanField(default=True)),
+                ("display_gender", models.BooleanField(default=True)),
+                ("display_city", models.BooleanField(default=True)),
+                ("display_facebook_name", models.BooleanField(default=True)),
+                ("display_instagram_name", models.BooleanField(default=True)),
+                ("display_twitter_name", models.BooleanField(default=True)),
+                ("display_linkedin_name", models.BooleanField(default=True)),
+                ("display_profession", models.BooleanField(default=True)),
+                ("display_education", models.BooleanField(default=True)),
+                ("display_relationship_status", models.BooleanField(default=True)),
+                ("display_online_status", models.BooleanField(default=True)),
+                ("display_badge", models.BooleanField(default=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

@@ -15,33 +15,96 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='ClientProfile',
+            name="ClientProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('preferred_payment_method', models.CharField(blank=True, max_length=50)),
-                ('total_jobs_posted', models.IntegerField(default=0)),
-                ('job_completion_rate', models.DecimalField(blank=True, decimal_places=2, max_digits=5, null=True)),
-                ('average_spent', models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
-                ('loyalty_points', models.IntegerField(default=0)),
-                ('service_name', models.CharField(blank=True, max_length=100)),
-                ('service_type', models.CharField(blank=True, choices=[('home', 'Home'), ('business', 'Business')], max_length=10)),
-                ('service_description', models.TextField(blank=True, max_length=1000)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='client_profile', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "preferred_payment_method",
+                    models.CharField(blank=True, max_length=50),
+                ),
+                ("total_jobs_posted", models.IntegerField(default=0)),
+                (
+                    "job_completion_rate",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=5, null=True
+                    ),
+                ),
+                (
+                    "average_spent",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=10, null=True
+                    ),
+                ),
+                ("loyalty_points", models.IntegerField(default=0)),
+                ("service_name", models.CharField(blank=True, max_length=100)),
+                (
+                    "service_type",
+                    models.CharField(
+                        blank=True,
+                        choices=[("home", "Home"), ("business", "Business")],
+                        max_length=10,
+                    ),
+                ),
+                ("service_description", models.TextField(blank=True, max_length=1000)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="client_profile",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='WorkerProfile',
+            name="WorkerProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(blank=True, max_length=100)),
-                ('skills', models.TextField(blank=True, max_length=500)),
-                ('experience', models.IntegerField(default=0, help_text='Years of experience')),
-                ('hourly_rate', models.DecimalField(blank=True, decimal_places=2, max_digits=6, null=True)),
-                ('certifications', models.TextField(blank=True, max_length=500)),
-                ('available_for_hire', models.BooleanField(default=True)),
-                ('total_jobs_completed', models.IntegerField(default=0)),
-                ('previous_work_photos', models.ImageField(blank=True, null=True, upload_to='worker_photos/')),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='worker_profile', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(blank=True, max_length=100)),
+                ("skills", models.TextField(blank=True, max_length=500)),
+                (
+                    "experience",
+                    models.IntegerField(default=0, help_text="Years of experience"),
+                ),
+                (
+                    "hourly_rate",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=6, null=True
+                    ),
+                ),
+                ("certifications", models.TextField(blank=True, max_length=500)),
+                ("available_for_hire", models.BooleanField(default=True)),
+                ("total_jobs_completed", models.IntegerField(default=0)),
+                (
+                    "previous_work_photos",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="worker_photos/"
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="worker_profile",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

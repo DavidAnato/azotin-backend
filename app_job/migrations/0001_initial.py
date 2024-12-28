@@ -9,52 +9,171 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('authentication', '0003_rename_has_badge_user_is_certified_and_more'),
+        ("authentication", "0003_rename_has_badge_user_is_certified_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='JobOffer',
+            name="JobOffer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('description', models.TextField()),
-                ('location', models.CharField(max_length=255)),
-                ('price_range_min', models.DecimalField(decimal_places=2, max_digits=6)),
-                ('price_range_max', models.DecimalField(decimal_places=2, max_digits=6)),
-                ('service_date', models.DateTimeField(blank=True, help_text='Scheduled date and time for the service.', null=True)),
-                ('is_recurring', models.BooleanField(default=False, help_text='True if the service is recurring.')),
-                ('recurrence_frequency', models.CharField(blank=True, choices=[('daily', 'Daily'), ('weekly', 'Weekly'), ('biweekly', 'Biweekly'), ('monthly', 'Monthly')], help_text='Applicable if the service is recurring.', max_length=50)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('is_filled', models.BooleanField(default=False, help_text='True once a worker is selected.')),
-                ('client', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='job_offers', to='authentication.clientprofile')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("description", models.TextField()),
+                ("location", models.CharField(max_length=255)),
+                (
+                    "price_range_min",
+                    models.DecimalField(decimal_places=2, max_digits=6),
+                ),
+                (
+                    "price_range_max",
+                    models.DecimalField(decimal_places=2, max_digits=6),
+                ),
+                (
+                    "service_date",
+                    models.DateTimeField(
+                        blank=True,
+                        help_text="Scheduled date and time for the service.",
+                        null=True,
+                    ),
+                ),
+                (
+                    "is_recurring",
+                    models.BooleanField(
+                        default=False, help_text="True if the service is recurring."
+                    ),
+                ),
+                (
+                    "recurrence_frequency",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("daily", "Daily"),
+                            ("weekly", "Weekly"),
+                            ("biweekly", "Biweekly"),
+                            ("monthly", "Monthly"),
+                        ],
+                        help_text="Applicable if the service is recurring.",
+                        max_length=50,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "is_filled",
+                    models.BooleanField(
+                        default=False, help_text="True once a worker is selected."
+                    ),
+                ),
+                (
+                    "client",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="job_offers",
+                        to="authentication.clientprofile",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='JobApplication',
+            name="JobApplication",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('proposed_price', models.DecimalField(decimal_places=2, max_digits=6)),
-                ('cover_letter', models.TextField(blank=True, help_text='Optional cover letter by the worker.')),
-                ('status', models.CharField(choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('rejected', 'Rejected')], default='pending', max_length=20)),
-                ('applied_at', models.DateTimeField(auto_now_add=True)),
-                ('worker', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='job_applications', to='authentication.workerprofile')),
-                ('job_offer', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='applications', to='app_job.joboffer')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("proposed_price", models.DecimalField(decimal_places=2, max_digits=6)),
+                (
+                    "cover_letter",
+                    models.TextField(
+                        blank=True, help_text="Optional cover letter by the worker."
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("accepted", "Accepted"),
+                            ("rejected", "Rejected"),
+                        ],
+                        default="pending",
+                        max_length=20,
+                    ),
+                ),
+                ("applied_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "worker",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="job_applications",
+                        to="authentication.workerprofile",
+                    ),
+                ),
+                (
+                    "job_offer",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="applications",
+                        to="app_job.joboffer",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Job',
+            name="Job",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('description', models.TextField()),
-                ('location', models.CharField(max_length=255)),
-                ('price', models.DecimalField(decimal_places=2, max_digits=6)),
-                ('completed', models.BooleanField(default=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('client', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='assigned_jobs', to='authentication.clientprofile')),
-                ('worker', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='assigned_jobs', to='authentication.workerprofile')),
-                ('job_offer', models.OneToOneField(help_text='The related job offer.', on_delete=django.db.models.deletion.CASCADE, related_name='job', to='app_job.joboffer')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("description", models.TextField()),
+                ("location", models.CharField(max_length=255)),
+                ("price", models.DecimalField(decimal_places=2, max_digits=6)),
+                ("completed", models.BooleanField(default=False)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "client",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="assigned_jobs",
+                        to="authentication.clientprofile",
+                    ),
+                ),
+                (
+                    "worker",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="assigned_jobs",
+                        to="authentication.workerprofile",
+                    ),
+                ),
+                (
+                    "job_offer",
+                    models.OneToOneField(
+                        help_text="The related job offer.",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="job",
+                        to="app_job.joboffer",
+                    ),
+                ),
             ],
         ),
     ]

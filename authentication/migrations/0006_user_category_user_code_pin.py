@@ -7,19 +7,25 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_job', '0004_category_joboffer_location_latitude_and_more'),
-        ('authentication', '0005_remove_user_rating_remove_user_testimonials_review'),
+        ("app_job", "0004_category_joboffer_location_latitude_and_more"),
+        ("authentication", "0005_remove_user_rating_remove_user_testimonials_review"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='category',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='users', to='app_job.category'),
+            model_name="user",
+            name="category",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="users",
+                to="app_job.category",
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='code_PIN',
+            model_name="user",
+            name="code_PIN",
             field=models.CharField(blank=True, max_length=4, null=True),
         ),
     ]

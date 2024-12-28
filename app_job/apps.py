@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class AppJobConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'app_job'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "app_job"

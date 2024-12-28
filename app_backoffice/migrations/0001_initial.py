@@ -14,15 +14,41 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Notification',
+            name="Notification",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=100)),
-                ('message', models.TextField()),
-                ('notification_type', models.CharField(choices=[('user_notification', 'User Notification'), ('news_notification', 'News Notification'), ('system_notification', 'System Notification')], default='system_notification', max_length=50)),
-                ('object_id', models.CharField(max_length=50)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('users_read', models.ManyToManyField(blank=True, related_name='read_notifications', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=100)),
+                ("message", models.TextField()),
+                (
+                    "notification_type",
+                    models.CharField(
+                        choices=[
+                            ("user_notification", "User Notification"),
+                            ("news_notification", "News Notification"),
+                            ("system_notification", "System Notification"),
+                        ],
+                        default="system_notification",
+                        max_length=50,
+                    ),
+                ),
+                ("object_id", models.CharField(max_length=50)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "users_read",
+                    models.ManyToManyField(
+                        blank=True,
+                        related_name="read_notifications",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

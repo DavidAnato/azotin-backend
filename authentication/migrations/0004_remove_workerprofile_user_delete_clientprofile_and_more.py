@@ -6,19 +6,19 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_job', '0002_alter_job_client_alter_job_price_alter_job_worker_and_more'),
-        ('authentication', '0003_rename_has_badge_user_is_certified_and_more'),
+        ("app_job", "0002_alter_job_client_alter_job_price_alter_job_worker_and_more"),
+        ("authentication", "0003_rename_has_badge_user_is_certified_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='workerprofile',
-            name='user',
+            model_name="workerprofile",
+            name="user",
         ),
         migrations.DeleteModel(
-            name='ClientProfile',
+            name="ClientProfile",
         ),
         migrations.DeleteModel(
-            name='WorkerProfile',
+            name="WorkerProfile",
         ),
     ]

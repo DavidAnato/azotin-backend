@@ -7,25 +7,51 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('app_profile', '0001_initial'),
+        ("app_profile", "0001_initial"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='workerprofile',
-            name='previous_work_photos',
+            model_name="workerprofile",
+            name="previous_work_photos",
         ),
         migrations.AlterField(
-            model_name='clientprofile',
-            name='job_completion_rate',
-            field=models.DecimalField(blank=True, decimal_places=2, help_text='En pourcentage', max_digits=5, null=True),
+            model_name="clientprofile",
+            name="job_completion_rate",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=2,
+                help_text="En pourcentage",
+                max_digits=5,
+                null=True,
+            ),
         ),
         migrations.CreateModel(
-            name='PreviousWorkPhoto',
+            name="PreviousWorkPhoto",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('photo', models.ImageField(blank=True, null=True, upload_to='worker_photos/')),
-                ('worker_profile', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='previous_work_photos', to='app_profile.workerprofile')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "photo",
+                    models.ImageField(
+                        blank=True, null=True, upload_to="worker_photos/"
+                    ),
+                ),
+                (
+                    "worker_profile",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="previous_work_photos",
+                        to="app_profile.workerprofile",
+                    ),
+                ),
             ],
         ),
     ]

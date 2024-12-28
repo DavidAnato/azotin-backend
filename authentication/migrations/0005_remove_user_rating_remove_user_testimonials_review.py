@@ -8,25 +8,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('authentication', '0004_remove_workerprofile_user_delete_clientprofile_and_more'),
+        (
+            "authentication",
+            "0004_remove_workerprofile_user_delete_clientprofile_and_more",
+        ),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='user',
-            name='rating',
+            model_name="user",
+            name="rating",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='testimonials',
+            model_name="user",
+            name="testimonials",
         ),
         migrations.CreateModel(
-            name='Review',
+            name="Review",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('rating', models.DecimalField(blank=True, decimal_places=2, max_digits=3, null=True)),
-                ('testimonials', models.TextField(blank=True, max_length=1000)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='reviews', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "rating",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=3, null=True
+                    ),
+                ),
+                ("testimonials", models.TextField(blank=True, max_length=1000)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="reviews",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]
