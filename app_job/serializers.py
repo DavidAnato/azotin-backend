@@ -6,21 +6,21 @@ from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerial
 from .models import Job, JobApplication, JobOffer
 
 
-### Category Serializer
+# Category Serializer
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "name", "description"]
 
 
-### SubCategory Serializer
+# SubCategory Serializer
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
         fields = ["id", "name", "description"]
 
 
-### JobOffer Serializer
+# JobOffer Serializer
 class JobOfferSerializer(serializers.ModelSerializer):
     client = ClientProfileSerializer(read_only=True)
     is_filled = serializers.BooleanField(read_only=True)
@@ -44,7 +44,7 @@ class JobOfferSerializer(serializers.ModelSerializer):
         ]
 
 
-### JobApplication Serializer
+# JobApplication Serializer
 class JobApplicationSerializer(serializers.ModelSerializer):
     worker = WorkerProfileSerializer(read_only=True)
     job_offer = JobOfferSerializer(read_only=True)
@@ -65,7 +65,7 @@ class JobApplicationSerializer(serializers.ModelSerializer):
         ]
 
 
-### Job Serializer
+# Job Serializer
 class JobSerializer(serializers.ModelSerializer):
     client = ClientProfileSerializer(read_only=True)
     worker = WorkerProfileSerializer(read_only=True)

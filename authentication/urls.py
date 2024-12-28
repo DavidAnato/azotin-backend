@@ -1,6 +1,24 @@
 from django.urls import path
 
-from .views import *
+from .views import (
+    ChangePasswordView,
+    CheckPhoneNumberView,
+    CodePINCreateView,
+    CodePINUpdateView,
+    EmailActivateView,
+    EmailValidateRequestView,
+    GoogleLoginView,
+    LoginView,
+    LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    PhoneNumberValidateConfirmView,
+    PhoneNumberValidateRequestView,
+    PINLoginView,
+    SetPasswordView,
+    UserProfileView,
+    UserRegisterView,
+)
 
 urlpatterns = [
     path("register/", UserRegisterView.as_view(), name="user-register"),
