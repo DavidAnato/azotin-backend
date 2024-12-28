@@ -26,7 +26,7 @@ class JobPagination(PageNumberPagination):
     max_page_size = 100
 
 
-### Category Views
+# Category Views
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
@@ -37,7 +37,7 @@ class SubCategoryListView(generics.ListAPIView):
     serializer_class = SubCategorySerializer
 
 
-### Job Offer Views
+# Job Offer Views
 class JobOfferListCreateView(generics.ListCreateAPIView):
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
@@ -61,7 +61,7 @@ class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
         return job_offer
 
 
-### Job Application Views
+# Job Application Views
 class JobApplicationListCreateView(generics.ListCreateAPIView):
     serializer_class = JobApplicationSerializer
     permission_classes = [IsAuthenticated]
@@ -92,7 +92,7 @@ class JobApplicationDetailView(generics.RetrieveUpdateDestroyAPIView):
         return job_application
 
 
-### Job Creation and Detail Views
+# Job Creation and Detail Views
 class JobCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -144,7 +144,7 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
         return job
 
 
-### Job Favorite Views
+# Job Favorite Views
 class JobFavoriteListView(generics.ListAPIView):
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
@@ -215,21 +215,16 @@ class JobSearchView(generics.ListAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        # Commence avec tous les objets JobOffer
         queryset = JobOffer.objects.all()
 
         # Recherche globale avec ?query
         query = self.request.query_params.get("query")
         if query:
             queryset = queryset.filter(
-                Q(title__icontains=query)  # Recherche dans le titre
-                | Q(description__icontains=query)  # Recherche dans la description
-                | Q(
-                    category__name__icontains=query
-                )  # Recherche dans le nom de la catégorie
-                | Q(
-                    sub_category__name__icontains=query
-                )  # Recherche dans le nom de la sous-catégorie
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(category__name__icontains=query)
+                | Q(sub_category__name__icontains=query)
             )
 
         # Filtres supplémentaires
