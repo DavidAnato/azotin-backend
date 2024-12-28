@@ -58,7 +58,7 @@ To maintain a consistent and clean codebase, we enforce strict guidelines for co
    Before committing, run:
 
    ```bash
-   isort .
+   isort --check-only .
    flake8 .
    ```
 
