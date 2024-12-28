@@ -3,10 +3,10 @@ name: Code Quality Checks
 on:
   push:
     branches:
-      - preprod
+      - develop
   pull_request:
     branches:
-      - preprod
+      - develop
 
 jobs:
   lint:
