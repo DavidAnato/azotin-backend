@@ -15,9 +15,15 @@ Thank you for considering contributing to this project! This document outlines t
    ```bash
    git clone git@github.com:LATOURE-LABS/jobhub_api.git
    cd jobhub_api
+
+  ```
+2. Set up environment variables:
+
+   ```bash
+   cp .env.example .env
    ```
 
-2. Set up the virtual environment and install dependencies:
+3. Set up the virtual environment and install dependencies:
 
    ```bash
    python -m venv venv
@@ -26,14 +32,14 @@ Thank you for considering contributing to this project! This document outlines t
 
    ```
 
-3. Configure the environment variables for your database and JWT settings.
-4. Run the database migrations:
+4. Configure the environment variables for your database and JWT settings.
+5. Run the database migrations:
 
    ```bash
    python manage.py migrate
    ```
 
-5. Start the Django server:
+6. Start the Django server:
 
    ```bash
     python manage.py runserver
@@ -86,6 +92,7 @@ fix(profile): fix email validation issue
 We use Git Flow as our branching strategy. Below are the key branches and their usage:
 
 - **main:** Production branch, always stable.
+- **preprod:** Pre-production branch, receives hotfixes.
 - **develop:** Development branch, receives new features.
 - **feature/feature-name:** Feature branches for developing new features.
 - **hotfix/hotfix-name:** Hotfix branches for critical bug fixes in production.
