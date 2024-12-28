@@ -1,0 +1,68 @@
+name: Deploy to AWS ECR
+
+on:
+  push:
+    branches:
+      - main
+      - preprod
+  pull_request:
+    branches:
+      - main
+      - preprod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Determine branch tag
+        id: branch-tag
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "tag=latest" >> $GITHUB_ENV
+          elif [ "${{ github.ref_name }}" = "preprod" ]; then
+            echo "tag=dev" >> $GITHUB_ENV
+          else
+            echo "Unsupported branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+      - name: Build, tag, and push Docker image to ECR
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          TAG: ${{ env.tag }}
+        run: |
+          set -e
+          ECR_URI=${{ secrets.AWS_REGION }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}
+
+          # Build the Docker image
+          docker build -t azotin-backend:${TAG} .
+
+          # Tag the Docker image
+          docker tag azotin-backend:${TAG} $ECR_URI:${TAG}
+
+          # Push the Docker image to ECR
+          docker push $ECR_URI:${TAG}
+
+      - name: Clean up local Docker images
+        run: |
+          docker image rm azotin-backend:${{ env.tag }} || true
+          docker image rm $ECR_URI:${{ env.tag }} || true
+
+      - name: Logout from Amazon ECR
+        run: docker logout ${{ secrets.AWS_REGION }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
