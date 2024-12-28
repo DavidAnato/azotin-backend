@@ -15,22 +15,21 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from app_profile.models import ClientProfile, WorkerProfile
 
 from .serializers import (
-    UserSerializer,
-    RegisterSerializer,
-    PhoneNumberValidateRequestSerializer,
-    PhoneNumberValidateConfirmSerializer,
-    EmailValidateRequestSerializer,
-    OTPVerificationSerializer,
-    LoginSerializer,
-    GoogleLoginSerializer,
     ChangePasswordSerializer,
-    PasswordResetRequestSerializer,
-    PasswordResetConfirmSerializer,
     CodePINSerializer,
+    EmailValidateRequestSerializer,
+    GoogleLoginSerializer,
+    LoginSerializer,
+    OTPVerificationSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    PhoneNumberValidateConfirmSerializer,
+    PhoneNumberValidateRequestSerializer,
     PINLoginSerializer,
+    RegisterSerializer,
     UserProfileSerializer,
+    UserSerializer,
 )
-
 from .utils import (
     send_activation_email,
     send_password_reset_email,

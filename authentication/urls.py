@@ -1,23 +1,23 @@
 from django.urls import path
 
 from .views import (
-    UserRegisterView,
-    EmailValidateRequestView,
-    EmailActivateView,
-    LoginView,
-    GoogleLoginView,
-    PINLoginView,
     ChangePasswordView,
-    SetPasswordView,
-    PasswordResetRequestView,
-    PasswordResetConfirmView,
-    LogoutView,
-    UserProfileView,
-    PhoneNumberValidateRequestView,
-    PhoneNumberValidateConfirmView,
+    CheckPhoneNumberView,
     CodePINCreateView,
     CodePINUpdateView,
-    CheckPhoneNumberView,
+    EmailActivateView,
+    EmailValidateRequestView,
+    GoogleLoginView,
+    LoginView,
+    LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    PhoneNumberValidateConfirmView,
+    PhoneNumberValidateRequestView,
+    PINLoginView,
+    SetPasswordView,
+    UserProfileView,
+    UserRegisterView,
 )
 
 urlpatterns = [
