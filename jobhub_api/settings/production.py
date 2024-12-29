@@ -1,6 +1,6 @@
-from .base import *  # noqa: F403, F401
-
 from decouple import config
+
+from .base import *  # noqa: F403, F401
 
 # Production settings
 DEBUG = False
