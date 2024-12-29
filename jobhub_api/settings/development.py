@@ -1,6 +1,7 @@
+from decouple import config
+
 from .base import *  # noqa: F403, F401
 from .base import BASE_DIR
-from decouple import config
 
 # Development settings
 DEBUG = True
@@ -10,10 +11,6 @@ ALLOWED_HOSTS = ["*"]
 # cors headers
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-
-from decouple import config
-
-from .base import *
 
 
 DEBUG = config("DEBUG", default=False, cast=bool)
