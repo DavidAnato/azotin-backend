@@ -44,7 +44,7 @@ jobs:
           TAG: ${{ env.tag }}
         run: |
           set -e
-          ECR_URI=${{ secrets.AWS_REGION }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}
+          ECR_URI=${{ secrets.ECR_REPOSITORY }}
 
           # Build the Docker image
           docker build -t azotin-backend:${TAG} .
