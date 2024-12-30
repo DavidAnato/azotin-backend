@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  azotin-api-database:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - azotin-db-data:/var/lib/postgresql/data
+    networks:
+      - azotin-net-v01
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  ms-payment:
+    image: 537124954160.dkr.ecr.us-east-1.amazonaws.com/azotin/backend:dev
+    env_file:
+      - stack.env
+    depends_on:
+      - azotin-api-database
+    networks:
+      - azotin-net-v01
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.azotin.rule=Host(`azotin.api.latoure.net`)"
+      - "traefik.http.routers.azotin.entrypoints=https"
+      - "traefik.http.routers.azotin.tls=true"
+      - "traefik.http.routers.azotin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.azotin.loadbalancer.server.port=8000"
+      - "traefik.http.routers.azotin.service=azotin"
+volumes:
+  azotin-db-data:
+networks:
+  azotin-net-v01:
+    external: true
+    name: azotin-net-v01
