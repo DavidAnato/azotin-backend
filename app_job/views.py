@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.contrib.gis.measure import D
 from django.db.models import Q
 from rest_framework import generics, status
@@ -9,7 +10,7 @@ from rest_framework.views import APIView
 
 from app_profile.models import ClientProfile, WorkerProfile
 
-from .models import Category, Job, JobApplication, JobOffer, SubCategory
+from .models import Category, Job, JobApplication, JobFavorite, JobOffer, SubCategory
 from .serializers import (
     CategorySerializer,
     JobApplicationSerializer,
@@ -17,6 +18,8 @@ from .serializers import (
     JobSerializer,
     SubCategorySerializer,
 )
+
+User = get_user_model()
 
 
 # Pagination
@@ -37,12 +40,98 @@ class SubCategoryListView(generics.ListAPIView):
     serializer_class = SubCategorySerializer
 
 
-# Job Offer Views
 class JobOfferListCreateView(generics.ListCreateAPIView):
-    queryset = JobOffer.objects.all()
+    queryset = JobOffer.objects.all().order_by("-created_at")
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            for data in serializer.data:
+                job_offer = JobOffer.objects.get(pk=data["id"])
+                if Job.objects.filter(
+                    job_offer=job_offer, worker__user=request.user
+                ).exists():
+                    data["status"] = "in_progress"
+                elif JobApplication.objects.filter(
+                    job_offer=job_offer, worker__user=request.user
+                ).exists():
+                    data["status"] = "applied"
+                elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
+                    data["status"] = "completed"
+                else:
+                    data["status"] = None
+
+                if JobFavorite.objects.filter(
+                    user=request.user, job_offer=job_offer
+                ).exists():
+                    data["is_favorite"] = True
+                else:
+                    data["is_favorite"] = False
+
+                data["applicant_count"] = JobApplication.objects.filter(
+                    job_offer=job_offer
+                ).count()
+                data["applicants"] = [
+                    {
+                        "id": app.worker.user.id,
+                        "first_name": app.worker.user.first_name,
+                        "last_name": app.worker.user.last_name,
+                        "email": app.worker.user.email,
+                        "phone": app.worker.user.phone,
+                        "profile_picture": app.worker.user.profile_picture,
+                        "picture_url": app.worker.user.picture_url,
+                    }
+                    for app in JobApplication.objects.filter(job_offer=job_offer)
+                ]
+
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        for data in serializer.data:
+            job_offer = JobOffer.objects.get(pk=data["id"])
+            if Job.objects.filter(
+                job_offer=job_offer, worker__user=request.user
+            ).exists():
+                data["status"] = "in_progress"
+            elif JobApplication.objects.filter(
+                job_offer=job_offer, worker__user=request.user
+            ).exists():
+                data["status"] = "applied"
+            elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
+                data["status"] = "completed"
+            else:
+                data["status"] = None
+
+            if JobFavorite.objects.filter(
+                user=request.user, job_offer=job_offer
+            ).exists():
+                data["is_favorite"] = True
+            else:
+                data["is_favorite"] = False
+
+            data["applicant_count"] = JobApplication.objects.filter(
+                job_offer=job_offer
+            ).count()
+            data["applicants"] = [
+                {
+                    "id": app.worker.user.id,
+                    "first_name": app.worker.user.first_name,
+                    "last_name": app.worker.user.last_name,
+                    "email": app.worker.user.email,
+                    "phone": app.worker.user.phone,
+                    "profile_picture": app.worker.user.profile_picture,
+                    "picture_url": app.worker.user.picture_url,
+                }
+                for app in JobApplication.objects.filter(job_offer=job_offer)
+            ]
+
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         client_profile = ClientProfile.objects.get(user=self.request.user)

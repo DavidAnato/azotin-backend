@@ -11,7 +11,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-# Local imports
 from app_profile.models import ClientProfile, WorkerProfile
 
 from .serializers import (
@@ -30,6 +29,8 @@ from .serializers import (
     UserProfileSerializer,
     UserSerializer,
 )
+
+# Local imports
 from .utils import (
     send_activation_email,
     send_password_reset_email,
@@ -559,9 +560,9 @@ class PINLoginView(generics.GenericAPIView):
         try:
             user = User.objects.get(phone_number=phone_number)
 
-            if code_pin and user.code_PIN != code_pin:
+            if code_pin and user.code_pin != code_pin:
                 print(code_pin)
-                print(user.code_PIN)
+                print(user.code_pin)
                 return Response(
                     {"code_pin": "Invalid PIN"}, status=status.HTTP_400_BAD_REQUEST
                 )
