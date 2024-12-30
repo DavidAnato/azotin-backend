@@ -3,7 +3,6 @@ from decouple import config
 from .base import *  # noqa: F403, F401
 from .base import BASE_DIR
 
-
 ALLOWED_HOSTS = ["*"]
 
 # cors headers
