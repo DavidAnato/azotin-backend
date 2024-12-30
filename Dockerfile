@@ -21,15 +21,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Django application
 COPY . /app/
+# Copy the entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
 
+# Make the entrypoint script executable
+RUN chmod +x /app/entrypoint.sh
 # Expose the port the app runs on
 EXPOSE 8000
 
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
-# Apply database migrations
-RUN python manage.py migrate --noinput
-
 # Start the application server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "jobhub_api.wsgi:application"]
+ENTRYPOINT ["./entrypoint.sh"]

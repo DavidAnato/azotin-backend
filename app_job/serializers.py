@@ -24,14 +24,20 @@ class SubCategorySerializer(serializers.ModelSerializer):
 class JobOfferSerializer(serializers.ModelSerializer):
     client = ClientProfileSerializer(read_only=True)
     is_filled = serializers.BooleanField(read_only=True)
+    category = CategorySerializer(read_only=True)
+    sub_category = SubCategorySerializer(read_only=True)
 
     class Meta:
         model = JobOffer
         fields = [
             "id",
+            "category",
+            "sub_category",
             "client",
             "title",
+            "image",
             "description",
+            "responsability",
             "location",
             "price_range_min",
             "price_range_max",

@@ -4,11 +4,11 @@ Thank you for considering contributing to this project! This document outlines t
 
 ## Project Setup
 
-### Prerequisites
+# Prerequisites
 
 - **Python 3.10**
 
-### Installation
+# Installation
 
 1. Clone the repository:
 
@@ -53,7 +53,7 @@ To maintain a consistent and clean codebase, we enforce strict guidelines for co
 - **[isort](https://pycqa.github.io/isort/)**: A tool to sort and organize imports.  
 - **[Flake8](https://flake8.pycqa.org/)**: A linter to detect style violations, unused imports, and potential bugs.  
 
-  ### Usage
+  # Usage
 
    Before committing, run:
 
@@ -70,7 +70,7 @@ We follow the Conventional Commits format to ensure a readable and structured Gi
 type(scope): message;
 ```
 
-### Accepted Types
+# Accepted Types
 
 - **feat:** For new features.
 - **fix:** For bug fixes.
@@ -80,7 +80,7 @@ type(scope): message;
 - **test:** For adding or modifying tests.
 - **chore:** For minor tasks such as dependency updates.
 
-#### Examples
+## Examples
 
 ```scss
 feat(auth): add JWT-based authentication
@@ -98,7 +98,7 @@ We use Git Flow as our branching strategy. Below are the key branches and their 
 - **hotfix/hotfix-name:** Hotfix branches for critical bug fixes in production.
 - **release/x.x.x:** Release branches for preparing new versions.
 
-  ### Rules
+  # Rules
 
 - **No direct commits** to `main` or `develop`.
 - **Pull Requests** (PR) are required to merge into develop or main.
