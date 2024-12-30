@@ -19,14 +19,16 @@ services:
     restart: always
 
   ms-payment:
-    image: 537124954160.dkr.ecr.us-east-1.amazonaws.com/azotin/backend:dev
+    image: jobhubapi:latest
     env_file:
-      - stack.env
+      - .env
     depends_on:
       - azotin-api-database
     networks:
       - azotin-net-v01
     restart: always
+    ports:
+      - 8000:8000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.azotin.rule=Host(`azotin.api.latoure.net`)"
@@ -39,5 +41,3 @@ volumes:
   azotin-db-data:
 networks:
   azotin-net-v01:
-    external: true
-    name: azotin-net-v01
