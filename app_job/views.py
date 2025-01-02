@@ -354,3 +354,36 @@ class JobSearchView(generics.ListAPIView):
 
         # Retourne le queryset filtré
         return queryset
+
+
+# JobFavorite Toggle
+class HandleJobFavoriteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        job_offer_id = kwargs.get("job_offer_id")
+        try:
+            job_offer = JobOffer.objects.get(id=job_offer_id)
+        except JobOffer.DoesNotExist:
+            return Response(
+                {"error": "Job offer not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        user = request.user
+        favorite, created = JobFavorite.objects.get_or_create(
+            user=user, job_offer=job_offer
+        )
+
+        if not created:
+            # Si l'offre est déjà favorite, on la retire
+            favorite.delete()
+            return Response(
+                {"message": "Job offer removed from favorites."},
+                status=status.HTTP_200_OK,
+            )
+
+        # Si l'offre n'était pas favorite, on l'ajoute
+        return Response(
+            {"message": "Job offer added to favorites successfully."},
+            status=status.HTTP_201_CREATED,
+        )

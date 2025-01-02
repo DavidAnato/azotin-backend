@@ -3,14 +3,18 @@ from decouple import config
 from .base import *  # noqa: F403, F401
 from .base import BASE_DIR
 
+# Development settings
+
 ALLOWED_HOSTS = ["*"]
+
+STATIC_URL = "/static/"
 
 # cors headers
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 
-DEBUG = config("DEBUG", default=False, cast=bool)
+DEBUG = config("DEBUG", default=True, cast=bool)
 ALLOWED_HOSTS = ["*"]
 if config("DB_ENGINE", default="sqlite3") == "postgres":
     DATABASES = {

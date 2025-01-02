@@ -3,7 +3,7 @@ from decouple import config
 from .base import *  # noqa: F403, F401
 
 # Production settings
-DEBUG = False
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS = [config("ALLOWED_HOSTS", default="azotin.api.latoure.net")]
 DATABASES = {

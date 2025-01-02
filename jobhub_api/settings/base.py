@@ -27,7 +27,6 @@ print(BASE_DIR)
 SECRET_KEY = config("SECRET_KEY", default="insecure-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -136,7 +135,7 @@ USE_TZ = True
 
 
 STATICFILES_DIRS = []
-STATIC_URL = "/static/"
+
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
