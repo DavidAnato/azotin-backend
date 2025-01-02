@@ -7,7 +7,6 @@ from .base import BASE_DIR
 
 ALLOWED_HOSTS = ["*"]
 
-STATIC_URL = "/static/"
 
 # cors headers
 CORS_ALLOW_ALL_ORIGINS = True
