@@ -18,15 +18,14 @@ services:
       retries: 5
     restart: always
 
-  ms-payment:
+  azotin-api:
     image: 537124954160.dkr.ecr.us-east-1.amazonaws.com/azotin/backend:dev
     env_file:
       - stack.env
+    ports:
+      - 8000:8000
     depends_on:
       - azotin-api-database
-    networks:
-      - azotin-net-v01
-    restart: always
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.azotin.rule=Host(`azotin.api.latoure.net`)"
@@ -35,9 +34,17 @@ services:
       - "traefik.http.routers.azotin.tls.certresolver=letsencrypt"
       - "traefik.http.services.azotin.loadbalancer.server.port=8000"
       - "traefik.http.routers.azotin.service=azotin"
+      - "traefik.docker.network=kong-net-v01"
+    networks:
+      - azotin-net-v01
+      - kong-net-v01
+    restart: always
+
 volumes:
   azotin-db-data:
 networks:
   azotin-net-v01:
     external: true
-    name: azotin-net-v01
+    name: azozin-net-v01
+  kong-net-v01:
+    external: true
