@@ -8,6 +8,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+STATIC_URL = "/static/"
+
 # cors headers
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True

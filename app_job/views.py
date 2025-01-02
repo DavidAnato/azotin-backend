@@ -355,6 +355,7 @@ class JobSearchView(generics.ListAPIView):
         # Retourne le queryset filtré
         return queryset
 
+
 # JobFavorite Toggle
 class HandleJobFavoriteView(APIView):
     permission_classes = [IsAuthenticated]
@@ -369,7 +370,9 @@ class HandleJobFavoriteView(APIView):
             )
 
         user = request.user
-        favorite, created = JobFavorite.objects.get_or_create(user=user, job_offer=job_offer)
+        favorite, created = JobFavorite.objects.get_or_create(
+            user=user, job_offer=job_offer
+        )
 
         if not created:
             # Si l'offre est déjà favorite, on la retire
