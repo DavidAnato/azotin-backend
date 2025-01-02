@@ -19,9 +19,9 @@ services:
     restart: always
 
   azotin-api:
-    image: 537124954160.dkr.ecr.us-east-1.amazonaws.com/azotin/backend:dev
+    image: jobhubapi:latest
     env_file:
-      - stack.env
+      - .env
     ports:
       - 8000:8000
     depends_on:
@@ -44,7 +44,4 @@ volumes:
   azotin-db-data:
 networks:
   azotin-net-v01:
-    external: true
-    name: azozin-net-v01
   kong-net-v01:
-    external: true
