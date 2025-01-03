@@ -30,7 +30,7 @@ RUN chmod +x /app/entrypoint.sh
 EXPOSE 8000
 
 # Collect static files
-RUN python manage.py collectstatic --noinput
+#RUN python manage.py collectstatic --noinput
 
 # Start the application server
 ENTRYPOINT ["./entrypoint.sh"]
