@@ -68,7 +68,7 @@ jobs:
         run: python manage.py migrate
 
       - name: collect static files
-        run: python manage.py collectstatic
+        run: python manage.py collectstatic --noinput
 
       - name: start server
         run: python manage.py runserver 0.0.0.0:8000
