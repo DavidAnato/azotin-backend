@@ -58,6 +58,7 @@ class ClientProfile(models.Model):
         max_length=10, choices=SERVICE_TYPE_CHOICES, blank=True
     )
     service_description = models.TextField(max_length=1000, blank=True)
+    location_description = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return f"Client profile of {self.user.first_name} {self.user.last_name}"
