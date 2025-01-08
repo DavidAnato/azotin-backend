@@ -6,18 +6,22 @@ from .views import (
     JobApplicationListCreateView,
     JobCreateView,
     JobDetailView,
-    JobFavoriteListView,
+    JobOfferFavoriteListView,
     JobHistoryListView,
     JobOfferDetailView,
     JobOfferListCreateView,
     JobSearchView,
-    JobSuggestionListView,
+    JobOfferSuggestionListView,
 )
 
 urlpatterns = [
     # Job Offers
     path("job-offers/", JobOfferListCreateView.as_view(), name="job-offer-list-create"),
-    path("job-offers/<int:pk>/", JobOfferDetailView.as_view(), name="job-offer-detail"),
+    path(
+        "job-offers/<int:pk>/",
+        JobOfferDetailView.as_view(),
+        name="job-offer-detail",
+    ),
     # Job Applications
     path(
         "job-offers/<int:job_offer_id>/applications/",
@@ -37,17 +41,23 @@ urlpatterns = [
     ),
     path("jobs/<int:pk>/", JobDetailView.as_view(), name="job-detail"),
     # Job Favorite
-    path("job-favorites/", JobFavoriteListView.as_view(), name="job-favorite-list"),
     path(
-        "job-favorites/<int:job_offer_id>/toggle/",
+        "job-offers/favorites/",
+        JobOfferFavoriteListView.as_view(),
+        name="job-offer-favorite-list",
+    ),
+    path(
+        "job-offers/favorites/<int:job_offer_id>/toggle/",
         HandleJobFavoriteView.as_view(),
-        name="job-favorite-toggle",
+        name="job-offer-favorite-toggle",
     ),
     # Job History
     path("job-history/", JobHistoryListView.as_view(), name="job-history-list"),
     # Job Suggestion
     path(
-        "job-suggestions/", JobSuggestionListView.as_view(), name="job-suggestion-list"
+        "job-suggestions/",
+        JobOfferSuggestionListView.as_view(),
+        name="job-offer-suggestion-list",
     ),
     # Job Search
     path("job-search/", JobSearchView.as_view(), name="job-search"),

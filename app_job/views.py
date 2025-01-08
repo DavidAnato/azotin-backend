@@ -47,95 +47,62 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
     pagination_class = JobPagination
 
     def list(self, request, *args, **kwargs):
+        # Filtrer les offres favorites si le paramètre is_favorite est passé
+        is_favorite = request.query_params.get("is_favorite", None)
+
         queryset = self.filter_queryset(self.get_queryset())
+
+        if is_favorite is not None:
+            queryset = queryset.filter(job_favorites__user=request.user)
 
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            for data in serializer.data:
-                job_offer = JobOffer.objects.get(pk=data["id"])
-                if Job.objects.filter(
-                    job_offer=job_offer, worker__user=request.user
-                ).exists():
-                    data["status"] = "in_progress"
-                elif JobApplication.objects.filter(
-                    job_offer=job_offer, worker__user=request.user
-                ).exists():
-                    data["status"] = "applied"
-                elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
-                    data["status"] = "completed"
-                else:
-                    data["status"] = None
-
-                if JobFavorite.objects.filter(
-                    user=request.user, job_offer=job_offer
-                ).exists():
-                    data["is_favorite"] = True
-                else:
-                    data["is_favorite"] = False
-
-                data["applicant_count"] = JobApplication.objects.filter(
-                    job_offer=job_offer
-                ).count()
-                data["applicants"] = [
-                    {
-                        "id": app.worker.user.id,
-                        "first_name": app.worker.user.first_name,
-                        "last_name": app.worker.user.last_name,
-                        "email": app.worker.user.email,
-                        "phone_number": app.worker.user.phone_number,
-                        "profile_picture": (
-                            app.worker.user.profile_picture
-                            if app.worker.user.profile_picture
-                            else None
-                        ),
-                        "picture_url": app.worker.user.picture_url,
-                    }
-                    for app in JobApplication.objects.filter(job_offer=job_offer)
-                ]
-
+            self.add_custom_fields(serializer.data, request.user)
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
-        for data in serializer.data:
+        self.add_custom_fields(serializer.data, request.user)
+        return Response(serializer.data)
+
+    def add_custom_fields(self, data_list, user):
+        """
+        Ajoute les champs personnalisés `status`, `is_favorite`, 
+        `applicant_count` et `applicants` aux données de chaque offre.
+        """
+        for data in data_list:
             job_offer = JobOffer.objects.get(pk=data["id"])
-            if Job.objects.filter(
-                job_offer=job_offer, worker__user=request.user
-            ).exists():
+            # Statut de l'offre
+            if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "in_progress"
-            elif JobApplication.objects.filter(
-                job_offer=job_offer, worker__user=request.user
-            ).exists():
+            elif JobApplication.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "applied"
             elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
                 data["status"] = "completed"
             else:
                 data["status"] = None
 
-            if JobFavorite.objects.filter(
-                user=request.user, job_offer=job_offer
-            ).exists():
-                data["is_favorite"] = True
-            else:
-                data["is_favorite"] = False
+            # Offre favorite
+            data["is_favorite"] = JobFavorite.objects.filter(user=user, job_offer=job_offer).exists()
 
-            data["applicant_count"] = JobApplication.objects.filter(
-                job_offer=job_offer
-            ).count()
+            # Nombre de candidatures
+            data["applicant_count"] = JobApplication.objects.filter(job_offer=job_offer).count()
+
+            # Liste des candidats
             data["applicants"] = [
                 {
                     "id": app.worker.user.id,
                     "first_name": app.worker.user.first_name,
                     "last_name": app.worker.user.last_name,
                     "email": app.worker.user.email,
-                    "phone": app.worker.user.phone,
-                    "profile_picture": app.worker.user.profile_picture,
+                    "phone_number": app.worker.user.phone_number,
+                    "profile_picture": app.worker.user.profile_picture
+                    if app.worker.user.profile_picture
+                    else None,
                     "picture_url": app.worker.user.picture_url,
                 }
                 for app in JobApplication.objects.filter(job_offer=job_offer)
             ]
-
-        return Response(serializer.data)
 
     def perform_create(self, serializer):
         client_profile = ClientProfile.objects.get(user=self.request.user)
@@ -250,7 +217,7 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # Job Favorite Views
-class JobFavoriteListView(generics.ListAPIView):
+class JobOfferFavoriteListView(generics.ListAPIView):
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
@@ -281,7 +248,7 @@ class JobHistoryListView(generics.ListAPIView):
 
 
 # emplois suggérés
-class JobSuggestionListView(generics.ListAPIView):
+class JobOfferSuggestionListView(generics.ListAPIView):
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
