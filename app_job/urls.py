@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    HandleJobFavoriteView,
     JobApplicationDetailView,
     JobApplicationListCreateView,
     JobCreateView,
@@ -37,6 +38,11 @@ urlpatterns = [
     path("jobs/<int:pk>/", JobDetailView.as_view(), name="job-detail"),
     # Job Favorite
     path("job-favorites/", JobFavoriteListView.as_view(), name="job-favorite-list"),
+    path(
+        "job-favorites/<int:job_offer_id>/toggle/",
+        HandleJobFavoriteView.as_view(),
+        name="job-favorite-toggle",
+    ),
     # Job History
     path("job-history/", JobHistoryListView.as_view(), name="job-history-list"),
     # Job Suggestion

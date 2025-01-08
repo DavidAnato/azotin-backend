@@ -85,7 +85,6 @@ class JobSerializer(serializers.ModelSerializer):
             "client",
             "worker",
             "description",
-            "location",
             "price",
             "completed",
             "created_at",

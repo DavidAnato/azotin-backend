@@ -83,8 +83,12 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
                         "first_name": app.worker.user.first_name,
                         "last_name": app.worker.user.last_name,
                         "email": app.worker.user.email,
-                        "phone": app.worker.user.phone,
-                        "profile_picture": app.worker.user.profile_picture,
+                        "phone_number": app.worker.user.phone_number,
+                        "profile_picture": (
+                            app.worker.user.profile_picture
+                            if app.worker.user.profile_picture
+                            else None
+                        ),
                         "picture_url": app.worker.user.picture_url,
                     }
                     for app in JobApplication.objects.filter(job_offer=job_offer)
@@ -139,14 +143,26 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
 
 
 class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    View to retrieve, update, or delete a Job Offer.
+    - Anyone can view the jobs.
+    - Only the owner (client) can update or delete their jobs.
+    """
+
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         job_offer = super().get_object()
-        if job_offer.client.user != self.request.user:
-            raise PermissionDenied("You are not allowed to access this Job Offer.")
+
+        # Restrict write permissions to the owner of the job
+        if self.request.method not in ("GET", "HEAD", "OPTIONS"):
+            if job_offer.client.user != self.request.user:
+                raise PermissionDenied(
+                    "You are not allowed to modify or delete this Job Offer."
+                )
+
         return job_offer
 
 
@@ -252,7 +268,16 @@ class JobHistoryListView(generics.ListAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        return Job.objects.filter(client=self.request.user)
+        # Essayer de récupérer le profil WorkerProfile associé à l'utilisateur connecté
+        worker_profile, created = WorkerProfile.objects.get_or_create(
+            user=self.request.user
+        )
+
+        if created:
+            # Si le profil a été créé, tu peux également envoyer un message d'info si nécessaire
+            print(f"WorkerProfile for user {self.request.user} has been created.")
+
+        return Job.objects.filter(worker=worker_profile)
 
 
 # emplois suggérés

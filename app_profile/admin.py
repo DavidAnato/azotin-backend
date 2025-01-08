@@ -52,4 +52,14 @@ class ClientProfileAdmin(admin.ModelAdmin):
             "Service",
             {"fields": ("service_name", "service_type", "service_description")},
         ),
+        (
+            "Localisation",
+            {
+                "fields": (
+                    "location_description",
+                    "location_latitude",
+                    "location_longitude",
+                )
+            },
+        ),
     )

@@ -58,12 +58,12 @@ class ClientProfile(models.Model):
         max_length=10, choices=SERVICE_TYPE_CHOICES, blank=True
     )
     service_description = models.TextField(max_length=1000, blank=True)
-    location_description = models.CharField(max_length=100, blank=True)
+    location_description = models.TextField(max_length=1000, blank=True)
     location_latitude = models.DecimalField(
-        max_digits=10, decimal_places=7, blank=True, null=True
+        max_digits=10, decimal_places=4, blank=True, null=True
     )
     location_longitude = models.DecimalField(
-        max_digits=10, decimal_places=7, blank=True, null=True
+        max_digits=10, decimal_places=4, blank=True, null=True
     )
 
     def __str__(self):
