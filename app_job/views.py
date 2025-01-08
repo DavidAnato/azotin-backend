@@ -67,7 +67,7 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
 
     def add_custom_fields(self, data_list, user):
         """
-        Ajoute les champs personnalisés `status`, `is_favorite`, 
+        Ajoute les champs personnalisés `status`, `is_favorite`,
         `applicant_count` et `applicants` aux données de chaque offre.
         """
         for data in data_list:
@@ -75,7 +75,9 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
             # Statut de l'offre
             if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "in_progress"
-            elif JobApplication.objects.filter(job_offer=job_offer, worker__user=user).exists():
+            elif JobApplication.objects.filter(
+                job_offer=job_offer, worker__user=user
+            ).exists():
                 data["status"] = "applied"
             elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
                 data["status"] = "completed"
@@ -83,10 +85,14 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
                 data["status"] = None
 
             # Offre favorite
-            data["is_favorite"] = JobFavorite.objects.filter(user=user, job_offer=job_offer).exists()
+            data["is_favorite"] = JobFavorite.objects.filter(
+                user=user, job_offer=job_offer
+            ).exists()
 
             # Nombre de candidatures
-            data["applicant_count"] = JobApplication.objects.filter(job_offer=job_offer).count()
+            data["applicant_count"] = JobApplication.objects.filter(
+                job_offer=job_offer
+            ).count()
 
             # Liste des candidats
             data["applicants"] = [
@@ -96,9 +102,11 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
                     "last_name": app.worker.user.last_name,
                     "email": app.worker.user.email,
                     "phone_number": app.worker.user.phone_number,
-                    "profile_picture": app.worker.user.profile_picture
-                    if app.worker.user.profile_picture
-                    else None,
+                    "profile_picture": (
+                        app.worker.user.profile_picture
+                        if app.worker.user.profile_picture
+                        else None
+                    ),
                     "picture_url": app.worker.user.picture_url,
                 }
                 for app in JobApplication.objects.filter(job_offer=job_offer)

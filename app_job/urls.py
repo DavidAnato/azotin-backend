@@ -6,12 +6,12 @@ from .views import (
     JobApplicationListCreateView,
     JobCreateView,
     JobDetailView,
-    JobOfferFavoriteListView,
     JobHistoryListView,
     JobOfferDetailView,
+    JobOfferFavoriteListView,
     JobOfferListCreateView,
-    JobSearchView,
     JobOfferSuggestionListView,
+    JobSearchView,
 )
 
 urlpatterns = [
