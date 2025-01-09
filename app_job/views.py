@@ -1,10 +1,11 @@
+from math import atan2, cos, radians, sin, sqrt
+
 from django.contrib.auth import get_user_model
-from django.contrib.gis.measure import D
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -29,19 +30,28 @@ class JobPagination(PageNumberPagination):
     max_page_size = 100
 
 
-# Category Views
-class CategoryListView(generics.ListAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
+class CategoryAndSubCategoryListView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        categories = Category.objects.all()
+        sub_categories = SubCategory.objects.all()
 
-class SubCategoryListView(generics.ListAPIView):
-    queryset = SubCategory.objects.all()
-    serializer_class = SubCategorySerializer
+        # Serialize the data
+        category_serializer = CategorySerializer(categories, many=True)
+        sub_category_serializer = SubCategorySerializer(sub_categories, many=True)
+
+        # Return the response with serialized data
+        return Response(
+            {
+                "categories": category_serializer.data,
+                "sub_categories": sub_category_serializer.data,
+            }
+        )
 
 
 class JobOfferListCreateView(generics.ListCreateAPIView):
-    queryset = JobOffer.objects.all().order_by("-created_at")
+    queryset = JobOffer.objects.filter(is_filled=False).order_by("-created_at")
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
@@ -255,21 +265,61 @@ class JobHistoryListView(generics.ListAPIView):
         return Job.objects.filter(worker=worker_profile)
 
 
-# emplois suggérés
 class JobOfferSuggestionListView(generics.ListAPIView):
-    queryset = JobOffer.objects.all()
+    queryset = JobOffer.objects.filter(is_filled=False)
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
 
+    def haversine_distance(self, lon1, lat1, lon2, lat2):
+        """
+        Calcule la distance entre deux points géographiques en kilomètres
+        en utilisant la formule de Haversine.
+        """
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        radius_km = 6371  # Rayon moyen de la Terre en km
+        return radius_km * c
+
     def get_queryset(self):
-        if self.request.user.category:
-            return JobOffer.objects.filter(
-                category=self.request.user.category,
-                location__distance_lte=(self.request.user.location, D(km=10)),
-            )
-        else:
+        user = self.request.user
+        user_lon = user.localisation_longitude
+        user_lat = user.localisation_latitude
+
+        # Si l'utilisateur n'a pas de localisation
+        if user_lon is None or user_lat is None:
+            # Filtrer par catégorie si définie, sinon retourner toutes les offres
+            if user.category:
+                return JobOffer.objects.filter(category=user.category)
             return JobOffer.objects.all()
+
+        # Si localisation est présente, calculer la distance
+        user_lon, user_lat = float(user_lon), float(user_lat)
+
+        # Si catégorie définie, filtrer par catégorie
+        jobs = (
+            JobOffer.objects.filter(category=user.category)
+            if user.category
+            else JobOffer.objects.all()
+        )
+
+        # Filtrer les offres à moins de 10 km
+        jobs_within_10_km = [
+            job
+            for job in jobs
+            if self.haversine_distance(
+                user_lon,
+                user_lat,
+                float(job.location_longitude),
+                float(job.location_latitude),
+            )
+            <= 10
+        ]
+
+        return jobs_within_10_km
 
 
 # Recherche de jobs par les champs suivants :
@@ -300,11 +350,11 @@ class JobOfferSuggestionListView(generics.ListAPIView):
 
 class JobSearchView(generics.ListAPIView):
     serializer_class = JobOfferSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     pagination_class = JobPagination
 
     def get_queryset(self):
-        queryset = JobOffer.objects.all()
+        queryset = JobOffer.objects.filter(is_filled=False)
 
         # Recherche globale avec ?query
         query = self.request.query_params.get("query")
@@ -348,9 +398,9 @@ class JobSearchView(generics.ListAPIView):
             queryset = queryset.filter(service_date=service_date)
 
         # Filtrer les jobs par type de contrat
-        contract_type = self.request.query_params.get("contract_type")
-        if contract_type:
-            queryset = queryset.filter(contract_type__iexact=contract_type)
+        type = self.request.query_params.get("type")
+        if type:
+            queryset = queryset.filter(type__iexact=type)
 
         # Retourne le queryset filtré
         return queryset

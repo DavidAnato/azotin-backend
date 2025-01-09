@@ -55,6 +55,7 @@ class UserAdmin(BaseUserAdmin):
                     "gender",
                     "city",
                     "country",
+                    "category",
                     "bio",
                 )
             },
@@ -62,6 +63,10 @@ class UserAdmin(BaseUserAdmin):
         ("Photo de profil", {"fields": ("profile_picture_image", "profile_picture")}),
         ("Mode", {"fields": ("theme_mode",)}),
         ("Statut en ligne", {"fields": ("online_status",)}),
+        (
+            "Social Media",
+            {"fields": ("linkedin", "twitter", "facebook", "instagram", "website")},
+        ),
         (
             "Compte",
             {

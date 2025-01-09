@@ -36,11 +36,8 @@ class JobOffer(models.Model):
     description = models.TextField()
     responsability = models.TextField()
     location = models.CharField(max_length=255)
-    price_range_min = models.DecimalField(
+    price = models.DecimalField(
         max_digits=9, decimal_places=2, help_text="Minimum price for the job."
-    )
-    price_range_max = models.DecimalField(
-        max_digits=9, decimal_places=2, help_text="Maximum price for the job."
     )
     service_date = models.DateTimeField(
         null=True, blank=True, help_text="Scheduled date and time for the service."

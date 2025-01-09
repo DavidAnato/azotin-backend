@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    CategoryAndSubCategoryListView,
     HandleJobFavoriteView,
     JobApplicationDetailView,
     JobApplicationListCreateView,
@@ -61,4 +62,10 @@ urlpatterns = [
     ),
     # Job Search
     path("job-search/", JobSearchView.as_view(), name="job-search"),
+    # Category and SubCategory
+    path(
+        "categories-and-subcategories/",
+        CategoryAndSubCategoryListView.as_view(),
+        name="category-and-subcategory-list",
+    ),
 ]

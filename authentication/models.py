@@ -80,6 +80,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     picture_url = models.URLField("Picture URL", blank=True, null=True)
     verified_email = models.BooleanField("Verified Email", default=False)
 
+    # Social Media
+    linkedin = models.URLField("Linkedin URL", blank=True, null=True)
+    twitter = models.URLField("Twitter URL", blank=True, null=True)
+    facebook = models.URLField("Facebook URL", blank=True, null=True)
+    instagram = models.URLField("Instagram URL", blank=True, null=True)
+    website = models.URLField("Website URL", blank=True, null=True)
+
     # OTP fields
     otp_code = models.CharField("OTP Code", max_length=5, null=True, blank=True)
     otp_generated_at = models.DateTimeField("OTP Generated At", null=True, blank=True)

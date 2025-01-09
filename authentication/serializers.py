@@ -41,6 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     reviews = ReviewSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
+    category = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
         model = User
