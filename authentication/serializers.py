@@ -6,7 +6,6 @@ from authentication.models import Review
 User = get_user_model()
 
 
-
 class ReviewSerializer(serializers.ModelSerializer):
     """
     Serializer for the Review model.

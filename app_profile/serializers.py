@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
+from app_job.models import Category, SubCategory
 from app_profile.models import ClientProfile, PreviousWorkPhoto, WorkerProfile
 from authentication.serializers import UserSerializer
-from app_job.models import Category, SubCategory
+
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
