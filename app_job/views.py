@@ -128,27 +128,64 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
 
 
 class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    View to retrieve, update, or delete a Job Offer.
-    - Anyone can view the jobs.
-    - Only the owner (client) can update or delete their jobs.
-    """
-
     queryset = JobOffer.objects.all()
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        job_offer = super().get_object()
+    def get(self, request, *args, **kwargs):
+        job_offer = self.get_object()
+        serializer = self.get_serializer(job_offer)
 
-        # Restrict write permissions to the owner of the job
-        if self.request.method not in ("GET", "HEAD", "OPTIONS"):
-            if job_offer.client.user != self.request.user:
-                raise PermissionDenied(
-                    "You are not allowed to modify or delete this Job Offer."
-                )
+        # Convertir les données sérialisées en un dictionnaire pour ajouter des champs supplémentaires
+        data = serializer.data
+        self.add_custom_fields([job_offer], request.user)
 
-        return job_offer
+        # Ajouter les champs supplémentaires à la réponse
+        data["status"] = job_offer.status
+        data["is_favorite"] = job_offer.is_favorite
+        data["applicant_count"] = job_offer.applicant_count
+        data["applicants"] = job_offer.applicants
+
+        return Response(data)
+
+    def add_custom_fields(self, data_list, user):
+        for data in data_list:
+            job_offer = data
+            if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
+                job_offer.status = "in_progress"
+            elif JobApplication.objects.filter(
+                job_offer=job_offer, worker__user=user
+            ).exists():
+                job_offer.status = "applied"
+            elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
+                job_offer.status = "completed"
+            else:
+                job_offer.status = None
+
+            job_offer.is_favorite = JobFavorite.objects.filter(
+                user=user, job_offer=job_offer
+            ).exists()
+
+            job_offer.applicant_count = JobApplication.objects.filter(
+                job_offer=job_offer
+            ).count()
+
+            job_offer.applicants = [
+                {
+                    "id": app.worker.user.id,
+                    "first_name": app.worker.user.first_name,
+                    "last_name": app.worker.user.last_name,
+                    "email": app.worker.user.email,
+                    "phone_number": app.worker.user.phone_number,
+                    "profile_picture": (
+                        app.worker.user.profile_picture
+                        if app.worker.user.profile_picture
+                        else None
+                    ),
+                    "picture_url": app.worker.user.picture_url,
+                }
+                for app in JobApplication.objects.filter(job_offer=job_offer)
+            ]
 
 
 # Job Application Views
@@ -165,6 +202,12 @@ class JobApplicationListCreateView(generics.ListCreateAPIView):
         job_offer = JobOffer.objects.get(id=self.kwargs["job_offer_id"])
         if job_offer.is_filled:
             raise PermissionDenied("This job offer is already filled.")
+        if not WorkerProfile.objects.filter(user=self.request.user).exists():
+            raise PermissionDenied("You are not allowed to apply to this job.")
+        if JobApplication.objects.filter(
+            worker=worker_profile, job_offer=job_offer
+        ).exists():
+            raise PermissionDenied("You have already applied to this job.")
         serializer.save(worker=worker_profile, job_offer=job_offer)
 
 
@@ -236,7 +279,7 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # Job Favorite Views
 class JobOfferFavoriteListView(generics.ListAPIView):
-    queryset = JobOffer.objects.all()
+    queryset = JobOffer.objects.filter(is_filled=False)
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
@@ -292,18 +335,25 @@ class JobOfferSuggestionListView(generics.ListAPIView):
         # Si l'utilisateur n'a pas de localisation
         if user_lon is None or user_lat is None:
             # Filtrer par catégorie si définie, sinon retourner toutes les offres
-            if user.category:
-                return JobOffer.objects.filter(category=user.category)
-            return JobOffer.objects.all()
+            if WorkerProfile.objects.filter(user=user).exists():
+                worker_profile = WorkerProfile.objects.get(user=user)
+                return JobOffer.objects.filter(
+                    is_filled=False,
+                    category=worker_profile.category,
+                ) | JobOffer.objects.filter(
+                    is_filled=False,
+                    sub_category=worker_profile.title,
+                )
+            return JobOffer.objects.filter(is_filled=False)
 
         # Si localisation est présente, calculer la distance
         user_lon, user_lat = float(user_lon), float(user_lat)
 
         # Si catégorie définie, filtrer par catégorie
         jobs = (
-            JobOffer.objects.filter(category=user.category)
+            JobOffer.objects.filter(category=user.category, is_filled=False)
             if user.category
-            else JobOffer.objects.all()
+            else JobOffer.objects.filter(is_filled=False)
         )
 
         # Filtrer les offres à moins de 10 km

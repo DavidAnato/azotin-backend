@@ -14,15 +14,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     Custom User model extending AbstractBaseUser and PermissionsMixin.
     """
 
-    # Category
-    category = models.ForeignKey(
-        "app_job.Category",
-        on_delete=models.CASCADE,
-        related_name="users",
-        null=True,
-        blank=True,
-    )
-
     # Personal Information
     email = models.EmailField(
         "Email Address", unique=True, max_length=255, blank=True, null=True

@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     ClientProfileDetailView,
     ClientProfileListCreateView,
+    UpdateUserProfileView,
     WorkerProfileDetailView,
     WorkerProfileListCreateView,
 )
@@ -27,5 +28,10 @@ urlpatterns = [
         "client-profile/<int:pk>/",
         ClientProfileDetailView.as_view(),
         name="client-profile-detail",
+    ),
+    path(
+        "update-user-profile/",
+        UpdateUserProfileView.as_view(),
+        name="update-user-profile",
     ),
 ]

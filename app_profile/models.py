@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
+from app_job.models import SubCategory
+
 User = get_user_model()
 
 
@@ -8,7 +10,18 @@ class WorkerProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="worker_profile"
     )
-    title = models.CharField(max_length=100, blank=True)
+    title = models.ForeignKey(
+        SubCategory, on_delete=models.CASCADE, blank=True, null=True
+    )
+    # Category
+    category = models.ForeignKey(
+        "app_job.Category",
+        on_delete=models.CASCADE,
+        related_name="users",
+        null=True,
+        blank=True,
+    )
+
     skills = models.TextField(max_length=500, blank=True)
     experience = models.IntegerField(default=0, help_text="Years of experience")
     hourly_rate = models.DecimalField(
@@ -17,6 +30,13 @@ class WorkerProfile(models.Model):
     certifications = models.TextField(max_length=500, blank=True)
     available_for_hire = models.BooleanField(default=True)
     total_jobs_completed = models.IntegerField(default=0)
+
+    # Notification Preferences
+    new_job_notification = models.BooleanField(default=True)
+    new_message_notification = models.BooleanField(default=True)
+    new_rejected_notification = models.BooleanField(default=True)
+    new_call_notification = models.BooleanField(default=True)
+    new_hire_notification = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Profile of {self.user.first_name} {self.user.last_name}"
@@ -60,10 +80,10 @@ class ClientProfile(models.Model):
     service_description = models.TextField(max_length=1000, blank=True)
     location_description = models.TextField(max_length=1000, blank=True)
     location_latitude = models.DecimalField(
-        max_digits=10, decimal_places=4, blank=True, null=True
+        max_digits=10, decimal_places=7, blank=True, null=True
     )
     location_longitude = models.DecimalField(
-        max_digits=10, decimal_places=4, blank=True, null=True
+        max_digits=10, decimal_places=7, blank=True, null=True
     )
 
     def __str__(self):

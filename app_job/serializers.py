@@ -46,6 +46,8 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_filled",
+            "location_latitude",
+            "location_longitude",
         ]
 
 

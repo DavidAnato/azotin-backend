@@ -54,7 +54,7 @@ class UserRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-
+        print(request)
         # Créer le profil en fonction du type de profil
         profile_type = serializer.validated_data.get("profile_type")
         if profile_type == "worker":
@@ -409,7 +409,7 @@ class PINLoginView(BaseLoginView, generics.GenericAPIView):
 
         except User.DoesNotExist:
             return Response(
-                {"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
 
