@@ -1,8 +1,8 @@
 from rest_framework import serializers
 
 from app_job.models import Category, SubCategory
-from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 
+from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 from .models import Job, JobApplication, JobOffer
 
 

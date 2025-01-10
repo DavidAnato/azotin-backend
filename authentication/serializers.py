@@ -6,6 +6,7 @@ from authentication.models import Review
 User = get_user_model()
 
 
+
 class ReviewSerializer(serializers.ModelSerializer):
     """
     Serializer for the Review model.
@@ -41,7 +42,6 @@ class UserSerializer(serializers.ModelSerializer):
 
     reviews = ReviewSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
-    category = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
         model = User

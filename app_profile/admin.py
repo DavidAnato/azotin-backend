@@ -19,6 +19,7 @@ class WorkerProfileAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "title",
+                    "category",
                     "skills",
                     "experience",
                     "hourly_rate",
