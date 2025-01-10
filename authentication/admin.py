@@ -55,7 +55,6 @@ class UserAdmin(BaseUserAdmin):
                     "gender",
                     "city",
                     "country",
-                    "category",
                     "bio",
                 )
             },
