@@ -87,8 +87,14 @@ class JobOffer(models.Model):
         help_text="Longitude of the job location.",
     )
 
+    def save(self, *args, **kwargs):
+        # Assigner automatiquement la catégorie à partir de la sous-catégorie
+        if self.sub_category and self.sub_category.category:
+            self.category = self.sub_category.category
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Job offer by {self.client.user.first_name} at {self.location}"
+        return f"{self.title} by {self.client.user.first_name} at {self.location}"
 
 
 class JobApplication(models.Model):

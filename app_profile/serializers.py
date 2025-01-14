@@ -41,3 +41,13 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkerProfile
         fields = "__all__"
+
+class WorkerProfileSerializerForUpdate(serializers.ModelSerializer):
+    user = UserSerializer()
+    previous_work_photos = PreviousWorkPhotoSerializer(many=True)
+    # category = CategorySerializer()
+    # title = TitleSerializer()
+
+    class Meta:
+        model = WorkerProfile
+        fields = "__all__"

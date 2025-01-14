@@ -38,6 +38,12 @@ class WorkerProfile(models.Model):
     new_call_notification = models.BooleanField(default=True)
     new_hire_notification = models.BooleanField(default=True)
 
+    def save(self, *args, **kwargs):
+        # Assigner automatiquement la catégorie à partir de la sous-catégorie
+        if self.title and self.title.category:
+            self.category = self.title.category
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Profile of {self.user.first_name} {self.user.last_name}"
 

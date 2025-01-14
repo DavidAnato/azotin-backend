@@ -42,7 +42,7 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "price",
             "service_date",
             "is_recurring",
-            "recurrence_frequency",
+            "type",
             "created_at",
             "updated_at",
             "is_filled",

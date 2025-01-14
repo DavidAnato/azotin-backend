@@ -157,35 +157,11 @@ def send_activation_email(email, otp_code, activation_link):
                 text-align: center;
                 margin: 0 auto;
             }}
-            .btn {{
-                display: inline-block;
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: #fff;
-                text-decoration: none;
-                border-radius: 3px;
-                margin-top: 20px;
-                font-size: 1.2rem;
-            }}
-            .otp-code {{
-                font-size: 2rem;
-                font-weight: 600;
-                margin-top: 1.3rem;
-            }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Activate Your Account</h2>
-            <p>Hello,</p>
-            <p>Thank you for registering with ConnectMe. Your OTP for account activation is:</p>
-            <p class="otp-code">{otp_code}</p>
-            <hr style="margin: 20px 0;">
-            or
-            <hr style="margin: 20px 0;">
-            <a href="{activation_link}" class="btn">Activate Account</a>
-            <p style="margin-top: 20px;">This OTP is valid for 3 hours.</p>
-            <p>Regards,<br>The ConnectMe Team</p>
+            <p style="font-size: 1.5rem; font-weight: 600;">{otp_code}</p>
         </div>
     </body>
     </html>
@@ -207,14 +183,14 @@ def send_whatsapp_message(phone_number, otp_code):
     :param phone_number: Numéro de téléphone du destinataire.
     :param otp_code: Code OTP pour la réinitialisation du mot de passe.
     """
-    subject = "Password Reset Request via WhatsApp"
+    subject = "CODE OTP"
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset Request</title>
+        <title>CODE OTP</title>
         <style>
             .container {{
                 max-width: 600px;
@@ -226,33 +202,11 @@ def send_whatsapp_message(phone_number, otp_code):
                 text-align: center;
                 margin: 0 auto;
             }}
-            .btn {{
-                display: inline-block;
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: #fff;
-                text-decoration: none;
-                border-radius: 3px;
-                margin-top: 20px;
-                font-size: 1.2rem;
-            }}
-            .otp-code {{
-                font-size: 2rem;
-                font-weight: 600;
-                margin-top: 1.3rem;
-            }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Password Reset Request</h2>
-            <p>Hello,</p>
-            <p>The user with the following WhatsApp number has requested to reset their password:</p>
-            <p class="otp-code">{phone_number}</p>
-            <p>The OTP for password reset is:</p>
-            <p class="otp-code">{otp_code}</p>
-            <p style="margin-top: 20px;">This OTP is valid for 3 hours.</p>
-            <p>Regards,<br>The ConnectMe Team</p>
+            <p style="font-size: 1.5rem; font-weight: 600;">{otp_code}</p>
         </div>
     </body>
     </html>

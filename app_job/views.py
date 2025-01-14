@@ -80,9 +80,23 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
         Ajoute les champs personnalisés `status`, `is_favorite`,
         `applicant_count` et `applicants` aux données de chaque offre.
         """
+        # Précharger les relations nécessaires
+        job_offer_ids = [data["id"] for data in data_list]
+        job_offers = JobOffer.objects.filter(id__in=job_offer_ids).prefetch_related(
+            "job_favorites",                # Pour les favoris
+            "applications__worker__user",   # Pour les candidatures
+            "job"                           # Pour vérifier le statut de l'offre
+        )
+
+        # Créer un dictionnaire pour un accès rapide
+        job_offer_dict = {job.id: job for job in job_offers}
+
         for data in data_list:
-            job_offer = JobOffer.objects.get(pk=data["id"])
-            # Statut de l'offre
+            job_offer = job_offer_dict.get(data["id"])
+            if not job_offer:
+                continue
+
+            # Déterminer le statut de l'offre
             if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "in_progress"
             elif JobApplication.objects.filter(
@@ -94,17 +108,9 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
             else:
                 data["status"] = None
 
-            # Offre favorite
-            data["is_favorite"] = JobFavorite.objects.filter(
-                user=user, job_offer=job_offer
-            ).exists()
-
-            # Nombre de candidatures
-            data["applicant_count"] = JobApplication.objects.filter(
-                job_offer=job_offer
-            ).count()
-
-            # Liste des candidats
+            # Ajouter les informations supplémentaires
+            data["is_favorite"] = job_offer.job_favorites.filter(user=user).exists()
+            data["applicant_count"] = job_offer.applications.count()
             data["applicants"] = [
                 {
                     "id": app.worker.user.id,
@@ -119,7 +125,7 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
                     ),
                     "picture_url": app.worker.user.picture_url,
                 }
-                for app in JobApplication.objects.filter(job_offer=job_offer)
+                for app in job_offer.applications.all()
             ]
 
     def perform_create(self, serializer):
@@ -314,62 +320,65 @@ class JobOfferSuggestionListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
 
-    def haversine_distance(self, lon1, lat1, lon2, lat2):
-        """
-        Calcule la distance entre deux points géographiques en kilomètres
-        en utilisant la formule de Haversine.
-        """
-        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        radius_km = 6371  # Rayon moyen de la Terre en km
-        return radius_km * c
+    # print("######################################")
 
-    def get_queryset(self):
-        user = self.request.user
-        user_lon = user.localisation_longitude
-        user_lat = user.localisation_latitude
+    # def haversine_distance(self, lon1, lat1, lon2, lat2):
+    #     """
+    #     Calcule la distance entre deux points géographiques en kilomètres
+    #     en utilisant la formule de Haversine.
+    #     """
+    #     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    #     dlon = lon2 - lon1
+    #     dlat = lat2 - lat1
+    #     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    #     c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    #     radius_km = 6371  # Rayon moyen de la Terre en km
+    #     return radius_km * c
 
-        # Si l'utilisateur n'a pas de localisation
-        if user_lon is None or user_lat is None:
-            # Filtrer par catégorie si définie, sinon retourner toutes les offres
-            if WorkerProfile.objects.filter(user=user).exists():
-                worker_profile = WorkerProfile.objects.get(user=user)
-                return JobOffer.objects.filter(
-                    is_filled=False,
-                    category=worker_profile.category,
-                ) | JobOffer.objects.filter(
-                    is_filled=False,
-                    sub_category=worker_profile.title,
-                )
-            return JobOffer.objects.filter(is_filled=False)
+    # def get_queryset(self):
+        # user = self.request.user
+        # user_lon = user.localisation_longitude
+        # user_lat = user.localisation_latitude
+        # print("user_lon", user_lon)
+        # print("user_lat", user_lat)
+        # # Si l'utilisateur n'a pas de localisation
+        # if user_lon is None or user_lat is None:
+        #     # Filtrer par catégorie si définie, sinon retourner toutes les offres
+        #     if WorkerProfile.objects.filter(user=user).exists():
+        #         worker_profile = WorkerProfile.objects.get(user=user)
+        #         return JobOffer.objects.filter(
+        #             is_filled=False,
+        #             category=worker_profile.category,
+        #         ) | JobOffer.objects.filter(
+        #             is_filled=False,
+        #             sub_category=worker_profile.title,
+        #         )
+        #     return JobOffer.objects.filter(is_filled=False)
 
-        # Si localisation est présente, calculer la distance
-        user_lon, user_lat = float(user_lon), float(user_lat)
+        # # Si localisation est présente, calculer la distance
+        # user_lon, user_lat = float(user_lon), float(user_lat)
 
-        # Si catégorie définie, filtrer par catégorie
-        jobs = (
-            JobOffer.objects.filter(category=user.category, is_filled=False)
-            if user.category
-            else JobOffer.objects.filter(is_filled=False)
-        )
+        # # Si catégorie définie, filtrer par catégorie
+        # jobs = (
+        #     JobOffer.objects.filter(category=user.category, is_filled=False)
+        #     if user.category
+        #     else JobOffer.objects.filter(is_filled=False)
+        # )
 
-        # Filtrer les offres à moins de 10 km
-        jobs_within_10_km = [
-            job
-            for job in jobs
-            if self.haversine_distance(
-                user_lon,
-                user_lat,
-                float(job.location_longitude),
-                float(job.location_latitude),
-            )
-            <= 10
-        ]
-
-        return jobs_within_10_km
+        # # Filtrer les offres à moins de 10 km
+        # jobs_within_10_km = [
+        #     job
+        #     for job in jobs
+        #     if self.haversine_distance(
+        #         user_lon,
+        #         user_lat,
+        #         float(job.location_longitude),
+        #         float(job.location_latitude),
+        #     )
+        #     <= 10
+        # ]
+        # print("jobs_within_10_km", jobs_within_10_km)
+        # return jobs_within_10_km
 
 
 # Recherche de jobs par les champs suivants :

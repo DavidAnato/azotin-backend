@@ -12,6 +12,7 @@ from .serializers import (
     ClientProfileSerializer,
     PreviousWorkPhotoSerializer,
     WorkerProfileSerializer,
+    WorkerProfileSerializerForUpdate,
 )
 
 
@@ -104,7 +105,7 @@ class UpdateUserProfileView(APIView):
 
         # Mise à jour ou création du WorkerProfile
         worker_profile, created = WorkerProfile.objects.get_or_create(user=user)
-        worker_profile_serializer = WorkerProfileSerializer(
+        worker_profile_serializer = WorkerProfileSerializerForUpdate(
             worker_profile, data=request.data, partial=True
         )
         if worker_profile_serializer.is_valid():

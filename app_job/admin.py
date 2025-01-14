@@ -1,9 +1,10 @@
 from django.contrib import admin
 
-from .models import Category, Job, JobApplication, JobOffer, SubCategory
+from .models import Category, Job, JobApplication, JobFavorite, JobOffer, SubCategory
 
 admin.site.register(Category)
 admin.site.register(SubCategory)
 admin.site.register(JobOffer)
 admin.site.register(JobApplication)
 admin.site.register(Job)
+admin.site.register(JobFavorite)
