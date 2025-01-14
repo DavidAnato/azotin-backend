@@ -1,4 +1,4 @@
-from math import atan2, cos, radians, sin, sqrt
+# from math import atan2, cos, radians, sin, sqrt
 
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -83,9 +83,9 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
         # Précharger les relations nécessaires
         job_offer_ids = [data["id"] for data in data_list]
         job_offers = JobOffer.objects.filter(id__in=job_offer_ids).prefetch_related(
-            "job_favorites",                # Pour les favoris
-            "applications__worker__user",   # Pour les candidatures
-            "job"                           # Pour vérifier le statut de l'offre
+            "job_favorites",  # Pour les favoris
+            "applications__worker__user",  # Pour les candidatures
+            "job",  # Pour vérifier le statut de l'offre
         )
 
         # Créer un dictionnaire pour un accès rapide
@@ -336,49 +336,49 @@ class JobOfferSuggestionListView(generics.ListAPIView):
     #     return radius_km * c
 
     # def get_queryset(self):
-        # user = self.request.user
-        # user_lon = user.localisation_longitude
-        # user_lat = user.localisation_latitude
-        # print("user_lon", user_lon)
-        # print("user_lat", user_lat)
-        # # Si l'utilisateur n'a pas de localisation
-        # if user_lon is None or user_lat is None:
-        #     # Filtrer par catégorie si définie, sinon retourner toutes les offres
-        #     if WorkerProfile.objects.filter(user=user).exists():
-        #         worker_profile = WorkerProfile.objects.get(user=user)
-        #         return JobOffer.objects.filter(
-        #             is_filled=False,
-        #             category=worker_profile.category,
-        #         ) | JobOffer.objects.filter(
-        #             is_filled=False,
-        #             sub_category=worker_profile.title,
-        #         )
-        #     return JobOffer.objects.filter(is_filled=False)
+    # user = self.request.user
+    # user_lon = user.localisation_longitude
+    # user_lat = user.localisation_latitude
+    # print("user_lon", user_lon)
+    # print("user_lat", user_lat)
+    # # Si l'utilisateur n'a pas de localisation
+    # if user_lon is None or user_lat is None:
+    #     # Filtrer par catégorie si définie, sinon retourner toutes les offres
+    #     if WorkerProfile.objects.filter(user=user).exists():
+    #         worker_profile = WorkerProfile.objects.get(user=user)
+    #         return JobOffer.objects.filter(
+    #             is_filled=False,
+    #             category=worker_profile.category,
+    #         ) | JobOffer.objects.filter(
+    #             is_filled=False,
+    #             sub_category=worker_profile.title,
+    #         )
+    #     return JobOffer.objects.filter(is_filled=False)
 
-        # # Si localisation est présente, calculer la distance
-        # user_lon, user_lat = float(user_lon), float(user_lat)
+    # # Si localisation est présente, calculer la distance
+    # user_lon, user_lat = float(user_lon), float(user_lat)
 
-        # # Si catégorie définie, filtrer par catégorie
-        # jobs = (
-        #     JobOffer.objects.filter(category=user.category, is_filled=False)
-        #     if user.category
-        #     else JobOffer.objects.filter(is_filled=False)
-        # )
+    # # Si catégorie définie, filtrer par catégorie
+    # jobs = (
+    #     JobOffer.objects.filter(category=user.category, is_filled=False)
+    #     if user.category
+    #     else JobOffer.objects.filter(is_filled=False)
+    # )
 
-        # # Filtrer les offres à moins de 10 km
-        # jobs_within_10_km = [
-        #     job
-        #     for job in jobs
-        #     if self.haversine_distance(
-        #         user_lon,
-        #         user_lat,
-        #         float(job.location_longitude),
-        #         float(job.location_latitude),
-        #     )
-        #     <= 10
-        # ]
-        # print("jobs_within_10_km", jobs_within_10_km)
-        # return jobs_within_10_km
+    # # Filtrer les offres à moins de 10 km
+    # jobs_within_10_km = [
+    #     job
+    #     for job in jobs
+    #     if self.haversine_distance(
+    #         user_lon,
+    #         user_lat,
+    #         float(job.location_longitude),
+    #         float(job.location_latitude),
+    #     )
+    #     <= 10
+    # ]
+    # print("jobs_within_10_km", jobs_within_10_km)
+    # return jobs_within_10_km
 
 
 # Recherche de jobs par les champs suivants :

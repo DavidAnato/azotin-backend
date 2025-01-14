@@ -42,6 +42,7 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
         model = WorkerProfile
         fields = "__all__"
 
+
 class WorkerProfileSerializerForUpdate(serializers.ModelSerializer):
     user = UserSerializer()
     previous_work_photos = PreviousWorkPhotoSerializer(many=True)
