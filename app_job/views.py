@@ -1,4 +1,4 @@
-from math import atan2, cos, radians, sin, sqrt
+# from math import atan2, cos, radians, sin, sqrt
 
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -115,8 +115,16 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
             data["applicants"] = []
             for app in job_offer.applications.all():
                 try:
-                    profile_picture = str(app.worker.user.profile_picture) if app.worker.user.profile_picture else None
-                    picture_url = str(app.worker.user.picture_url) if hasattr(app.worker.user, "picture_url") else None
+                    profile_picture = (
+                        str(app.worker.user.profile_picture)
+                        if app.worker.user.profile_picture
+                        else None
+                    )
+                    picture_url = (
+                        str(app.worker.user.picture_url)
+                        if hasattr(app.worker.user, "picture_url")
+                        else None
+                    )
                 except (UnicodeDecodeError, AttributeError):
                     profile_picture = None
                     picture_url = None
@@ -331,10 +339,12 @@ class JobOfferSuggestionListView(generics.ListAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        print("L'utilisateur a lancé la requête pour obtenir des suggestions d'offres d'emploi.")
+        print(
+            "L'utilisateur a lancé la requête pour obtenir des suggestions d'offres d'emploi."
+        )
         user = self.request.user
-        user_lon = user.localisation_longitude
-        user_lat = user.localisation_latitude
+        # user_lon = user.localisation_longitude
+        # user_lat = user.localisation_latitude
 
         if WorkerProfile.objects.filter(user=user).exists():
             worker_profile = WorkerProfile.objects.get(user=user)
@@ -356,7 +366,9 @@ class JobOfferSuggestionListView(generics.ListAPIView):
 
             # Filtrer par sous-catégorie
             if worker_profile.title:
-                sub_category_offers = JobOffer.objects.filter(sub_category=worker_profile.title)
+                sub_category_offers = JobOffer.objects.filter(
+                    sub_category=worker_profile.title
+                )
                 print(
                     f"Offres correspondant à la sous-catégorie ({worker_profile.title}): "
                     f"{sub_category_offers.count()}"
@@ -381,7 +393,6 @@ class JobOfferSuggestionListView(generics.ListAPIView):
         else:
             print("Aucun profil de travailleur associé à cet utilisateur.")
             return JobOffer.objects.none()
-
 
 
 # Recherche de jobs par les champs suivants :
