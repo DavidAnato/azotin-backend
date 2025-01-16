@@ -9,7 +9,6 @@ from .views import (
     JobDetailView,
     JobHistoryListView,
     JobOfferDetailView,
-    JobOfferFavoriteListView,
     JobOfferListCreateView,
     JobOfferSuggestionListView,
     JobSearchView,
@@ -41,12 +40,6 @@ urlpatterns = [
         name="job-create",
     ),
     path("jobs/<int:pk>/", JobDetailView.as_view(), name="job-detail"),
-    # Job Favorite
-    path(
-        "job-offers/favorites/",
-        JobOfferFavoriteListView.as_view(),
-        name="job-offer-favorite-list",
-    ),
     path(
         "job-offers/favorites/<int:job_offer_id>/toggle/",
         HandleJobFavoriteView.as_view(),

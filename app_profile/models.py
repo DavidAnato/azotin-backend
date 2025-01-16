@@ -1,8 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 
-from app_job.models import SubCategory
-
 User = get_user_model()
 
 
@@ -11,7 +9,7 @@ class WorkerProfile(models.Model):
         User, on_delete=models.CASCADE, related_name="worker_profile"
     )
     title = models.ForeignKey(
-        SubCategory, on_delete=models.CASCADE, blank=True, null=True
+        "app_job.SubCategory", on_delete=models.CASCADE, blank=True, null=True
     )
     # Category
     category = models.ForeignKey(

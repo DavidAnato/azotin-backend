@@ -1,4 +1,4 @@
-# from math import atan2, cos, radians, sin, sqrt
+from math import atan2, cos, radians, sin, sqrt
 
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -111,22 +111,27 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
             # Ajouter les informations supplémentaires
             data["is_favorite"] = job_offer.job_favorites.filter(user=user).exists()
             data["applicant_count"] = job_offer.applications.count()
-            data["applicants"] = [
-                {
-                    "id": app.worker.user.id,
-                    "first_name": app.worker.user.first_name,
-                    "last_name": app.worker.user.last_name,
-                    "email": app.worker.user.email,
-                    "phone_number": app.worker.user.phone_number,
-                    "profile_picture": (
-                        app.worker.user.profile_picture
-                        if app.worker.user.profile_picture
-                        else None
-                    ),
-                    "picture_url": app.worker.user.picture_url,
-                }
-                for app in job_offer.applications.all()
-            ]
+            # Je veux un try catch pour éviter les erreurs si le worker n'a pas de profile_picture
+            data["applicants"] = []
+            for app in job_offer.applications.all():
+                try:
+                    profile_picture = str(app.worker.user.profile_picture) if app.worker.user.profile_picture else None
+                    picture_url = str(app.worker.user.picture_url) if hasattr(app.worker.user, "picture_url") else None
+                except (UnicodeDecodeError, AttributeError):
+                    profile_picture = None
+                    picture_url = None
+
+                data["applicants"].append(
+                    {
+                        "id": app.worker.user.id,
+                        "first_name": app.worker.user.first_name,
+                        "last_name": app.worker.user.last_name,
+                        "email": app.worker.user.email,
+                        "phone_number": app.worker.user.phone_number,
+                        "profile_picture": profile_picture,
+                        "picture_url": picture_url,
+                    }
+                )
 
     def perform_create(self, serializer):
         client_profile = ClientProfile.objects.get(user=self.request.user)
@@ -176,22 +181,38 @@ class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
                 job_offer=job_offer
             ).count()
 
-            job_offer.applicants = [
-                {
-                    "id": app.worker.user.id,
-                    "first_name": app.worker.user.first_name,
-                    "last_name": app.worker.user.last_name,
-                    "email": app.worker.user.email,
-                    "phone_number": app.worker.user.phone_number,
-                    "profile_picture": (
-                        app.worker.user.profile_picture
+            # Sécuriser l'accès aux champs potentiellement problématiques
+            job_offer.applicants = []
+            for app in JobApplication.objects.filter(job_offer=job_offer):
+                try:
+                    profile_picture = (
+                        str(app.worker.user.profile_picture)
                         if app.worker.user.profile_picture
                         else None
-                    ),
-                    "picture_url": app.worker.user.picture_url,
-                }
-                for app in JobApplication.objects.filter(job_offer=job_offer)
-            ]
+                    )
+                except (UnicodeDecodeError, AttributeError):
+                    profile_picture = None
+
+                try:
+                    picture_url = (
+                        str(app.worker.user.picture_url)
+                        if hasattr(app.worker.user, "picture_url")
+                        else None
+                    )
+                except (UnicodeDecodeError, AttributeError):
+                    picture_url = None
+
+                job_offer.applicants.append(
+                    {
+                        "id": app.worker.user.id,
+                        "first_name": app.worker.user.first_name,
+                        "last_name": app.worker.user.last_name,
+                        "email": app.worker.user.email,
+                        "phone_number": app.worker.user.phone_number,
+                        "profile_picture": profile_picture,
+                        "picture_url": picture_url,
+                    }
+                )
 
 
 # Job Application Views
@@ -283,17 +304,6 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
         return job
 
 
-# Job Favorite Views
-class JobOfferFavoriteListView(generics.ListAPIView):
-    queryset = JobOffer.objects.filter(is_filled=False)
-    serializer_class = JobOfferSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = JobPagination
-
-    def get_queryset(self):
-        return JobOffer.objects.filter(job_favorites__user=self.request.user)
-
-
 # l'historique des emplois
 class JobHistoryListView(generics.ListAPIView):
     queryset = Job.objects.all()
@@ -320,65 +330,58 @@ class JobOfferSuggestionListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
 
-    # print("######################################")
+    def get_queryset(self):
+        print("L'utilisateur a lancé la requête pour obtenir des suggestions d'offres d'emploi.")
+        user = self.request.user
+        user_lon = user.localisation_longitude
+        user_lat = user.localisation_latitude
 
-    # def haversine_distance(self, lon1, lat1, lon2, lat2):
-    #     """
-    #     Calcule la distance entre deux points géographiques en kilomètres
-    #     en utilisant la formule de Haversine.
-    #     """
-    #     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    #     dlon = lon2 - lon1
-    #     dlat = lat2 - lat1
-    #     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    #     c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    #     radius_km = 6371  # Rayon moyen de la Terre en km
-    #     return radius_km * c
+        if WorkerProfile.objects.filter(user=user).exists():
+            worker_profile = WorkerProfile.objects.get(user=user)
+            print(
+                f"Catégorie du profil : {worker_profile.category}, "
+                f"Sous-catégorie : {worker_profile.title}"
+            )
 
-    # def get_queryset(self):
-    # user = self.request.user
-    # user_lon = user.localisation_longitude
-    # user_lat = user.localisation_latitude
-    # print("user_lon", user_lon)
-    # print("user_lat", user_lat)
-    # # Si l'utilisateur n'a pas de localisation
-    # if user_lon is None or user_lat is None:
-    #     # Filtrer par catégorie si définie, sinon retourner toutes les offres
-    #     if WorkerProfile.objects.filter(user=user).exists():
-    #         worker_profile = WorkerProfile.objects.get(user=user)
-    #         return JobOffer.objects.filter(
-    #             is_filled=False,
-    #             category=worker_profile.category,
-    #         ) | JobOffer.objects.filter(
-    #             is_filled=False,
-    #             sub_category=worker_profile.title,
-    #         )
-    #     return JobOffer.objects.filter(is_filled=False)
+            # Filtrage initial
+            jobs_offers = JobOffer.objects.filter(is_filled=False)
 
-    # # Si localisation est présente, calculer la distance
-    # user_lon, user_lat = float(user_lon), float(user_lat)
+            # Filtrer par catégorie
+            if worker_profile.category:
+                jobs_offers = jobs_offers.filter(category=worker_profile.category)
+                print(
+                    f"Offres correspondant à la catégorie ({worker_profile.category}): "
+                    f"{jobs_offers.count()}"
+                )
 
-    # # Si catégorie définie, filtrer par catégorie
-    # jobs = (
-    #     JobOffer.objects.filter(category=user.category, is_filled=False)
-    #     if user.category
-    #     else JobOffer.objects.filter(is_filled=False)
-    # )
+            # Filtrer par sous-catégorie
+            if worker_profile.title:
+                sub_category_offers = JobOffer.objects.filter(sub_category=worker_profile.title)
+                print(
+                    f"Offres correspondant à la sous-catégorie ({worker_profile.title}): "
+                    f"{sub_category_offers.count()}"
+                )
+                # Union des résultats
+                jobs_offers = jobs_offers | sub_category_offers
 
-    # # Filtrer les offres à moins de 10 km
-    # jobs_within_10_km = [
-    #     job
-    #     for job in jobs
-    #     if self.haversine_distance(
-    #         user_lon,
-    #         user_lat,
-    #         float(job.location_longitude),
-    #         float(job.location_latitude),
-    #     )
-    #     <= 10
-    # ]
-    # print("jobs_within_10_km", jobs_within_10_km)
-    # return jobs_within_10_km
+            print(f"Nombre total d'offres après union : {jobs_offers.count()}")
+
+            # Vérifier les résultats finaux
+            if not jobs_offers.exists():
+                print("Aucune offre ne correspond aux critères.")
+            else:
+                print("######################################")
+                print("Liste des offres envoyées :")
+                for job in jobs_offers:
+                    print(f" - Offre ID : {job.id}, Titre : {job.title}")
+                print("######################################")
+
+            return jobs_offers
+
+        else:
+            print("Aucun profil de travailleur associé à cet utilisateur.")
+            return JobOffer.objects.none()
+
 
 
 # Recherche de jobs par les champs suivants :
