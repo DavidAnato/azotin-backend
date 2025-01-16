@@ -15,7 +15,7 @@ class WorkerProfile(models.Model):
     category = models.ForeignKey(
         "app_job.Category",
         on_delete=models.CASCADE,
-        related_name="users",
+        related_name="worker_profiles",
         null=True,
         blank=True,
     )
@@ -63,7 +63,7 @@ class ClientProfile(models.Model):
     category = models.ForeignKey(
         "app_job.Category",
         on_delete=models.CASCADE,
-        related_name="users",
+        related_name="client_profiles",
         null=True,
         blank=True,
     )
