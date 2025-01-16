@@ -60,6 +60,13 @@ class ClientProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="client_profile"
     )
+    category = models.ForeignKey(
+        "app_job.Category",
+        on_delete=models.CASCADE,
+        related_name="users",
+        null=True,
+        blank=True,
+    )
     preferred_payment_method = models.CharField(max_length=50, blank=True)
     total_jobs_posted = models.IntegerField(default=0)
     job_completion_rate = models.DecimalField(
@@ -92,3 +99,17 @@ class ClientProfile(models.Model):
 
     def __str__(self):
         return f"Client profile of {self.user.first_name} {self.user.last_name}"
+
+
+class FavoriteWorker(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="favorite_workers"
+    )
+    worker_profile = models.ForeignKey(
+        WorkerProfile, on_delete=models.CASCADE, related_name="favorite_workers"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Favorite for {self.user.first_name} for {self.worker_profile}"

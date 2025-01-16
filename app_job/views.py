@@ -388,11 +388,77 @@ class JobOfferSuggestionListView(generics.ListAPIView):
                     print(f" - Offre ID : {job.id}, Titre : {job.title}")
                 print("######################################")
 
-            return jobs_offers
+            return self.add_custom_fields(jobs_offers, user)
 
         else:
             print("Aucun profil de travailleur associé à cet utilisateur.")
             return JobOffer.objects.none()
+
+    def add_custom_fields(self, data_list, user):
+        """
+        Ajoute les champs personnalisés `status`, `is_favorite`,
+        `applicant_count` et `applicants` aux données de chaque offre.
+        """
+        # Précharger les relations nécessaires
+        job_offer_ids = [data["id"] for data in data_list]
+        job_offers = JobOffer.objects.filter(id__in=job_offer_ids).prefetch_related(
+            "job_favorites",  # Pour les favoris
+            "applications__worker__user",  # Pour les candidatures
+            "job",  # Pour vérifier le statut de l'offre
+        )
+
+        # Créer un dictionnaire pour un accès rapide
+        job_offer_dict = {job.id: job for job in job_offers}
+
+        for data in data_list:
+            job_offer = job_offer_dict.get(data["id"])
+            if not job_offer:
+                continue
+
+            # Déterminer le statut de l'offre
+            if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
+                data["status"] = "in_progress"
+            elif JobApplication.objects.filter(
+                job_offer=job_offer, worker__user=user
+            ).exists():
+                data["status"] = "applied"
+            elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
+                data["status"] = "completed"
+            else:
+                data["status"] = None
+
+            # Ajouter les informations supplémentaires
+            data["is_favorite"] = job_offer.job_favorites.filter(user=user).exists()
+            data["applicant_count"] = job_offer.applications.count()
+            # Je veux un try catch pour éviter les erreurs si le worker n'a pas de profile_picture
+            data["applicants"] = []
+            for app in job_offer.applications.all():
+                try:
+                    profile_picture = (
+                        str(app.worker.user.profile_picture)
+                        if app.worker.user.profile_picture
+                        else None
+                    )
+                    picture_url = (
+                        str(app.worker.user.picture_url)
+                        if hasattr(app.worker.user, "picture_url")
+                        else None
+                    )
+                except (UnicodeDecodeError, AttributeError):
+                    profile_picture = None
+                    picture_url = None
+
+                data["applicants"].append(
+                    {
+                        "id": app.worker.user.id,
+                        "first_name": app.worker.user.first_name,
+                        "last_name": app.worker.user.last_name,
+                        "email": app.worker.user.email,
+                        "phone_number": app.worker.user.phone_number,
+                        "profile_picture": profile_picture,
+                        "picture_url": picture_url,
+                    }
+                )
 
 
 # Recherche de jobs par les champs suivants :
@@ -428,7 +494,7 @@ class JobSearchView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = JobOffer.objects.filter(is_filled=False)
-
+        user = self.request.user
         # Recherche globale avec ?query
         query = self.request.query_params.get("query")
         if query:
@@ -476,7 +542,73 @@ class JobSearchView(generics.ListAPIView):
             queryset = queryset.filter(type__iexact=type)
 
         # Retourne le queryset filtré
-        return queryset
+        return self.add_custom_fields(queryset, user)
+
+    def add_custom_fields(self, data_list, user):
+        """
+        Ajoute les champs personnalisés `status`, `is_favorite`,
+        `applicant_count` et `applicants` aux données de chaque offre.
+        """
+        # Précharger les relations nécessaires
+        job_offer_ids = [data["id"] for data in data_list]
+        job_offers = JobOffer.objects.filter(id__in=job_offer_ids).prefetch_related(
+            "job_favorites",  # Pour les favoris
+            "applications__worker__user",  # Pour les candidatures
+            "job",  # Pour vérifier le statut de l'offre
+        )
+
+        # Créer un dictionnaire pour un accès rapide
+        job_offer_dict = {job.id: job for job in job_offers}
+
+        for data in data_list:
+            job_offer = job_offer_dict.get(data["id"])
+            if not job_offer:
+                continue
+
+            # Déterminer le statut de l'offre
+            if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
+                data["status"] = "in_progress"
+            elif JobApplication.objects.filter(
+                job_offer=job_offer, worker__user=user
+            ).exists():
+                data["status"] = "applied"
+            elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
+                data["status"] = "completed"
+            else:
+                data["status"] = None
+
+            # Ajouter les informations supplémentaires
+            data["is_favorite"] = job_offer.job_favorites.filter(user=user).exists()
+            data["applicant_count"] = job_offer.applications.count()
+            # Je veux un try catch pour éviter les erreurs si le worker n'a pas de profile_picture
+            data["applicants"] = []
+            for app in job_offer.applications.all():
+                try:
+                    profile_picture = (
+                        str(app.worker.user.profile_picture)
+                        if app.worker.user.profile_picture
+                        else None
+                    )
+                    picture_url = (
+                        str(app.worker.user.picture_url)
+                        if hasattr(app.worker.user, "picture_url")
+                        else None
+                    )
+                except (UnicodeDecodeError, AttributeError):
+                    profile_picture = None
+                    picture_url = None
+
+                data["applicants"].append(
+                    {
+                        "id": app.worker.user.id,
+                        "first_name": app.worker.user.first_name,
+                        "last_name": app.worker.user.last_name,
+                        "email": app.worker.user.email,
+                        "phone_number": app.worker.user.phone_number,
+                        "profile_picture": profile_picture,
+                        "picture_url": picture_url,
+                    }
+                )
 
 
 # JobFavorite Toggle
