@@ -331,6 +331,7 @@ class JobHistoryListView(generics.ListAPIView):
 
         return Job.objects.filter(worker=worker_profile)
 
+
 class JobOfferSuggestionListView(generics.ListAPIView):
     queryset = JobOffer.objects.filter(is_filled=False)
     serializer_class = JobOfferSerializer
@@ -467,7 +468,6 @@ class JobOfferSuggestionListView(generics.ListAPIView):
                         "picture_url": picture_url,
                     }
                 )
-
 
 
 # Recherche de jobs par les champs suivants :
