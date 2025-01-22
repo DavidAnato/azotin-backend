@@ -81,7 +81,7 @@ class ClientProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
         return client_profile
 
 
-class UpdateUserProfileView(APIView):
+class UpdateWorkerProfileView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -96,47 +96,29 @@ class UpdateUserProfileView(APIView):
             return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Mise à jour ou création du WorkerProfile
-        if WorkerProfile.objects.filter(user=user).exists():
-            worker_profile = WorkerProfile.objects.get(user=user)
-            worker_profile_serializer = WorkerProfileSerializerForUpdate(
-                worker_profile, data=request.data, partial=True
-            )
-            if worker_profile_serializer.is_valid():
-                worker_profile_serializer.save()
-            else:
-                return Response(
-                    worker_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Ajout des photos de PreviousWorkPhoto
-            if "previous_work_photos" in request.FILES:
-                photos = request.FILES.getlist("previous_work_photos")
-                for photo in photos:
-                    photo_data = {"worker_profile": worker_profile.id, "photo": photo}
-                    photo_serializer = PreviousWorkPhotoSerializer(data=photo_data)
-                    if photo_serializer.is_valid():
-                        photo_serializer.save()
-                    else:
-                        return Response(
-                            photo_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                        )
-
-        elif ClientProfile.objects.filter(user=user).exists():
-            client_profile = ClientProfile.objects.get(user=user)
-            client_profile_serializer = ClientProfileSerializer(
-                client_profile, data=request.data, partial=True
-            )
-            if client_profile_serializer.is_valid():
-                client_profile_serializer.save()
-            else:
-                return Response(
-                    client_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                )
+        worker_profile, created = WorkerProfile.objects.get_or_create(user=user)
+        worker_profile_serializer = WorkerProfileSerializerForUpdate(
+            worker_profile, data=request.data, partial=True
+        )
+        if worker_profile_serializer.is_valid():
+            worker_profile_serializer.save()
         else:
             return Response(
-                {"error": "User does not have a profile."},
-                status=status.HTTP_400_BAD_REQUEST,
+                worker_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Ajout des photos de PreviousWorkPhoto
+        if "previous_work_photos" in request.FILES:
+            photos = request.FILES.getlist("previous_work_photos")
+            for photo in photos:
+                photo_data = {"worker_profile": worker_profile.id, "photo": photo}
+                photo_serializer = PreviousWorkPhotoSerializer(data=photo_data)
+                if photo_serializer.is_valid():
+                    photo_serializer.save()
+                else:
+                    return Response(
+                        photo_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+                    )
 
         user_data = self.enrich_user_data(user)
         return Response(

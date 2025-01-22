@@ -331,7 +331,6 @@ class JobHistoryListView(generics.ListAPIView):
 
         return Job.objects.filter(worker=worker_profile)
 
-
 class JobOfferSuggestionListView(generics.ListAPIView):
     queryset = JobOffer.objects.filter(is_filled=False)
     serializer_class = JobOfferSerializer
@@ -343,8 +342,6 @@ class JobOfferSuggestionListView(generics.ListAPIView):
             "L'utilisateur a lancé la requête pour obtenir des suggestions d'offres d'emploi."
         )
         user = self.request.user
-        # user_lon = user.localisation_longitude
-        # user_lat = user.localisation_latitude
 
         if WorkerProfile.objects.filter(user=user).exists():
             worker_profile = WorkerProfile.objects.get(user=user)
@@ -388,11 +385,22 @@ class JobOfferSuggestionListView(generics.ListAPIView):
                     print(f" - Offre ID : {job.id}, Titre : {job.title}")
                 print("######################################")
 
-            return self.add_custom_fields(jobs_offers, user)
-
+            return jobs_offers
         else:
             print("Aucun profil de travailleur associé à cet utilisateur.")
             return JobOffer.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            self.add_custom_fields(serializer.data, request.user)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        self.add_custom_fields(serializer.data, request.user)
+        return Response(serializer.data)
 
     def add_custom_fields(self, data_list, user):
         """
@@ -461,6 +469,7 @@ class JobOfferSuggestionListView(generics.ListAPIView):
                 )
 
 
+
 # Recherche de jobs par les champs suivants :
 # title
 # description
@@ -494,7 +503,7 @@ class JobSearchView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = JobOffer.objects.filter(is_filled=False)
-        user = self.request.user
+
         # Recherche globale avec ?query
         query = self.request.query_params.get("query")
         if query:
@@ -542,7 +551,19 @@ class JobSearchView(generics.ListAPIView):
             queryset = queryset.filter(type__iexact=type)
 
         # Retourne le queryset filtré
-        return self.add_custom_fields(queryset, user)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            self.add_custom_fields(serializer.data, request.user)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        self.add_custom_fields(serializer.data, request.user)
+        return Response(serializer.data)
 
     def add_custom_fields(self, data_list, user):
         """

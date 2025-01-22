@@ -9,6 +9,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "name", "description"]
+        ref_name = "ProfileCategorySerializer"
 
 
 # SubCategory Serializer
