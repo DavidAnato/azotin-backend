@@ -20,6 +20,7 @@ from .serializers import (
 
 User = get_user_model()
 
+
 class ProfilePagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
@@ -29,7 +30,7 @@ class ProfilePagination(PageNumberPagination):
 # Worker Profile Views
 class WorkerProfileListCreateView(generics.ListCreateAPIView):
     queryset = WorkerProfile.objects.all()
-    serializer_class = WorkerProfileSerializer 
+    serializer_class = WorkerProfileSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = ProfilePagination
 
@@ -48,11 +49,10 @@ class WorkerProfileListCreateView(generics.ListCreateAPIView):
         for worker_profile in queryset:
             print(f"Vérification des favoris pour le profil {worker_profile.id}")
             is_favorite = FavoriteWorker.objects.filter(
-                user=self.request.user,
-                worker_profile=worker_profile
+                user=self.request.user, worker_profile=worker_profile
             ).exists()
             print(f"Is favorite: {is_favorite}")
-            setattr(worker_profile, 'is_favorite', is_favorite)
+            setattr(worker_profile, "is_favorite", is_favorite)
         return queryset
 
 
@@ -63,7 +63,9 @@ class WorkerProfileDetailView(APIView):
         try:
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "User not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
         user_data = UserSerializer(user).data
 
