@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -17,6 +18,7 @@ from .serializers import (
     WorkerProfileSerializerForUpdate,
 )
 
+User = get_user_model()
 
 class ProfilePagination(PageNumberPagination):
     page_size = 10
@@ -27,35 +29,55 @@ class ProfilePagination(PageNumberPagination):
 # Worker Profile Views
 class WorkerProfileListCreateView(generics.ListCreateAPIView):
     queryset = WorkerProfile.objects.all()
-    serializer_class = WorkerProfileSerializer
+    serializer_class = WorkerProfileSerializer 
     permission_classes = [IsAuthenticated]
     pagination_class = ProfilePagination
 
     def perform_create(self, serializer):
+        print("Création d'un nouveau profil worker")
         serializer.save(user=self.request.user)
 
     def get_queryset(self):
+        print("Récupération du queryset")
         queryset = super().get_queryset()
+        print(f"Nombre de profils trouvés: {queryset.count()}")
         return self.add_favorite_field(queryset)
 
     def add_favorite_field(self, queryset):
+        print("Ajout du champ is_favorite")
         for worker_profile in queryset:
-            worker_profile.is_favorite = FavoriteWorker.objects.filter(
-                user=self.request.user, worker_profile=worker_profile
+            print(f"Vérification des favoris pour le profil {worker_profile.id}")
+            is_favorite = FavoriteWorker.objects.filter(
+                user=self.request.user,
+                worker_profile=worker_profile
             ).exists()
+            print(f"Is favorite: {is_favorite}")
+            setattr(worker_profile, 'is_favorite', is_favorite)
         return queryset
 
 
-class WorkerProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = WorkerProfile.objects.all()
-    serializer_class = WorkerProfileSerializer
+class WorkerProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        worker_profile = super().get_object()
-        if worker_profile.user != self.request.user:
-            raise PermissionDenied("You are not allowed to access this Worker Profile.")
-        return worker_profile
+    def get(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user_data = UserSerializer(user).data
+
+        if hasattr(user, "worker_profile"):
+            worker_profile = WorkerProfileSerializer(user.worker_profile).data
+            worker_profile["previous_work_photos"] = PreviousWorkPhotoSerializer(
+                user.worker_profile.previous_work_photos.all(), many=True
+            ).data
+            user_data["worker_profile"] = worker_profile
+        elif hasattr(user, "client_profile"):
+            client_profile = ClientProfileSerializer(user.client_profile).data
+            user_data["client_profile"] = client_profile
+
+        return Response(user_data, status=status.HTTP_200_OK)
 
 
 # Client Profile Views
@@ -159,7 +181,10 @@ class WorkerProfileSuggestionListView(generics.ListAPIView):
             queryset = WorkerProfile.objects.filter(category=client_profile.category)
         else:
             queryset = WorkerProfile.objects.all()
-        return self.add_favorite_field(queryset)
+        queryset = self.add_favorite_field(queryset)
+        print("###############")
+        print(queryset)
+        return queryset
 
     def add_favorite_field(self, queryset):
         for worker_profile in queryset:
