@@ -4,6 +4,7 @@ from .views import (
     ClientProfileDetailView,
     ClientProfileListCreateView,
     FavoriteWorkerToggleView,
+    UpdateClientProfileView,
     UpdateWorkerProfileView,
     WorkerProfileDetailView,
     WorkerProfileListCreateView,
@@ -32,9 +33,14 @@ urlpatterns = [
         name="client-profile-detail",
     ),
     path(
-        "update-user-profile/",
+        "update-worker-profile/",
         UpdateWorkerProfileView.as_view(),
-        name="update-user-profile",
+        name="update-worker-profile",
+    ),
+    path(
+        "update-client-profile/",
+        UpdateClientProfileView.as_view(),
+        name="update-client-profile",
     ),
     path(
         "worker-profile-suggestion/",

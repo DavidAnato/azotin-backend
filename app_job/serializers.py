@@ -49,9 +49,7 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "location_latitude",
             "location_longitude",
         ]
-        extra_kwargs = {
-            'sub_category': {'write_only': True}
-        }
+        extra_kwargs = {"sub_category": {"write_only": True}}
 
     def validate_sub_category(self, value):
         if isinstance(value, int):
@@ -60,6 +58,7 @@ class JobOfferSerializer(serializers.ModelSerializer):
             except SubCategory.DoesNotExist:
                 raise serializers.ValidationError("Sous-catégorie invalide")
         return value
+
 
 # JobApplication Serializer
 class JobApplicationSerializer(serializers.ModelSerializer):

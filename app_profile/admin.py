@@ -55,12 +55,6 @@ class ClientProfileAdmin(admin.ModelAdmin):
         ),
         (
             "Localisation",
-            {
-                "fields": (
-                    "location_description",
-                    "location_latitude",
-                    "location_longitude",
-                )
-            },
+            {"fields": ("location_description",)},
         ),
     )

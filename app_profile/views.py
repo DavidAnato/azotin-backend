@@ -41,15 +41,15 @@ class WorkerProfileListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         print("Récupération du queryset")
         queryset = super().get_queryset()
-        
-        is_favorite = self.request.query_params.get('is_favorite', None)
-        if is_favorite and is_favorite.lower() == 'true':
+
+        is_favorite = self.request.query_params.get("is_favorite", None)
+        if is_favorite and is_favorite.lower() == "true":
             # Filtrer pour n'obtenir que les profils favoris
             favorite_worker_ids = FavoriteWorker.objects.filter(
                 user=self.request.user
-            ).values_list('worker_profile_id', flat=True)
+            ).values_list("worker_profile_id", flat=True)
             queryset = queryset.filter(id__in=favorite_worker_ids)
-            
+
         print(f"Nombre de profils trouvés: {queryset.count()}")
         return self.add_favorite_field(queryset)
 
@@ -63,6 +63,7 @@ class WorkerProfileListCreateView(generics.ListCreateAPIView):
             print(f"Is favorite: {is_favorite}")
             setattr(worker_profile, "is_favorite", is_favorite)
         return queryset
+
 
 class WorkerProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -151,6 +152,58 @@ class UpdateWorkerProfileView(APIView):
                     return Response(
                         photo_serializer.errors, status=status.HTTP_400_BAD_REQUEST
                     )
+
+        user_data = self.enrich_user_data(user)
+        return Response(
+            {"message": "Profile updated successfully.", "user": user_data},
+            status=status.HTTP_200_OK,
+        )
+
+    def enrich_user_data(self, user):
+        user_data = UserSerializer(user).data
+
+        try:
+            if hasattr(user, "worker_profile"):
+                worker_profile = WorkerProfileSerializer(user.worker_profile).data
+                worker_profile["previous_work_photos"] = PreviousWorkPhotoSerializer(
+                    user.worker_profile.previous_work_photos.all(), many=True
+                ).data
+                user_data["worker_profile"] = worker_profile
+            elif hasattr(user, "client_profile"):
+                client_profile = ClientProfileSerializer(user.client_profile).data
+                user_data["client_profile"] = client_profile
+        except Exception as e:
+            print(f"Error enriching user data: {e}")
+
+        return user_data
+
+
+# Mise à jour du profil client
+class UpdateClientProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        print(request.data)
+        # Mise à jour partielle des données du modèle User
+        user_serializer = UserSerializer(user, data=request.data, partial=True)
+        if user_serializer.is_valid():
+            user_serializer.save()
+        else:
+            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Mise à jour ou création du ClientProfile
+        client_profile, created = ClientProfile.objects.get_or_create(user=user)
+        client_profile_serializer = ClientProfileSerializer(
+            client_profile, data=request.data, partial=True
+        )
+        if client_profile_serializer.is_valid():
+            client_profile_serializer.save()
+        else:
+            return Response(
+                client_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
 
         user_data = self.enrich_user_data(user)
         return Response(

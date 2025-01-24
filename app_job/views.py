@@ -58,7 +58,7 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = JobOffer.objects.filter(is_filled=False).order_by("-created_at")
-        client_id = self.request.query_params.get('client_id', None)
+        client_id = self.request.query_params.get("client_id", None)
         if client_id:
             queryset = queryset.filter(client_id=client_id)
         return queryset
@@ -150,18 +150,18 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         client_profile = ClientProfile.objects.get(user=self.request.user)
-        
+
         # Récupérer la sous-catégorie directement des données validées
-        sub_category_id = self.request.data.get('sub_category')
+        sub_category_id = self.request.data.get("sub_category")
         try:
             sub_category = SubCategory.objects.get(id=sub_category_id)
             serializer.save(
                 client=client_profile,
                 sub_category=sub_category,
-                category=sub_category.category  # Ajout de la catégorie parent
+                category=sub_category.category,  # Ajout de la catégorie parent
             )
         except SubCategory.DoesNotExist:
-            raise ValidationError({'sub_category': ['Sous-catégorie invalide.']})
+            raise ValidationError({"sub_category": ["Sous-catégorie invalide."]})
 
 
 class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -339,24 +339,25 @@ class JobHistoryListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        is_completed = self.request.query_params.get('is_completed', None)
-        
+        is_completed = self.request.query_params.get("is_completed", None)
+
         # Vérifier si l'utilisateur a un profil client
-        if hasattr(user, 'client_profile'):
+        if hasattr(user, "client_profile"):
             queryset = Job.objects.filter(client=user.client_profile)
-            
-        # Vérifier si l'utilisateur a un profil travailleur 
-        elif hasattr(user, 'worker_profile'):
+
+        # Vérifier si l'utilisateur a un profil travailleur
+        elif hasattr(user, "worker_profile"):
             queryset = Job.objects.filter(worker=user.worker_profile)
-            
+
         else:
             return Job.objects.none()
-            
-        if is_completed == 'true':
+
+        if is_completed == "true":
             queryset = queryset.filter(completed=True)
-            
+
         return queryset
-    
+
+
 class JobOfferSuggestionListView(generics.ListAPIView):
     queryset = JobOffer.objects.filter(is_filled=False)
     serializer_class = JobOfferSerializer
