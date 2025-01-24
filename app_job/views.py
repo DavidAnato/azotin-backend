@@ -2,6 +2,7 @@
 
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.forms import ValidationError
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
@@ -51,10 +52,16 @@ class CategoryAndSubCategoryListView(APIView):
 
 
 class JobOfferListCreateView(generics.ListCreateAPIView):
-    queryset = JobOffer.objects.filter(is_filled=False).order_by("-created_at")
     serializer_class = JobOfferSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = JobPagination
+
+    def get_queryset(self):
+        queryset = JobOffer.objects.filter(is_filled=False).order_by("-created_at")
+        client_id = self.request.query_params.get('client_id', None)
+        if client_id:
+            queryset = queryset.filter(client_id=client_id)
+        return queryset
 
     def list(self, request, *args, **kwargs):
         # Filtrer les offres favorites si le paramètre is_favorite est passé
@@ -143,7 +150,18 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         client_profile = ClientProfile.objects.get(user=self.request.user)
-        serializer.save(client=client_profile)
+        
+        # Récupérer la sous-catégorie directement des données validées
+        sub_category_id = self.request.data.get('sub_category')
+        try:
+            sub_category = SubCategory.objects.get(id=sub_category_id)
+            serializer.save(
+                client=client_profile,
+                sub_category=sub_category,
+                category=sub_category.category  # Ajout de la catégorie parent
+            )
+        except SubCategory.DoesNotExist:
+            raise ValidationError({'sub_category': ['Sous-catégorie invalide.']})
 
 
 class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -320,18 +338,25 @@ class JobHistoryListView(generics.ListAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        # Essayer de récupérer le profil WorkerProfile associé à l'utilisateur connecté
-        worker_profile, created = WorkerProfile.objects.get_or_create(
-            user=self.request.user
-        )
-
-        if created:
-            # Si le profil a été créé, tu peux également envoyer un message d'info si nécessaire
-            print(f"WorkerProfile for user {self.request.user} has been created.")
-
-        return Job.objects.filter(worker=worker_profile)
-
-
+        user = self.request.user
+        is_completed = self.request.query_params.get('is_completed', None)
+        
+        # Vérifier si l'utilisateur a un profil client
+        if hasattr(user, 'client_profile'):
+            queryset = Job.objects.filter(client=user.client_profile)
+            
+        # Vérifier si l'utilisateur a un profil travailleur 
+        elif hasattr(user, 'worker_profile'):
+            queryset = Job.objects.filter(worker=user.worker_profile)
+            
+        else:
+            return Job.objects.none()
+            
+        if is_completed == 'true':
+            queryset = queryset.filter(completed=True)
+            
+        return queryset
+    
 class JobOfferSuggestionListView(generics.ListAPIView):
     queryset = JobOffer.objects.filter(is_filled=False)
     serializer_class = JobOfferSerializer

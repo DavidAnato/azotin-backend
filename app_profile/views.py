@@ -41,6 +41,15 @@ class WorkerProfileListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         print("Récupération du queryset")
         queryset = super().get_queryset()
+        
+        is_favorite = self.request.query_params.get('is_favorite', None)
+        if is_favorite and is_favorite.lower() == 'true':
+            # Filtrer pour n'obtenir que les profils favoris
+            favorite_worker_ids = FavoriteWorker.objects.filter(
+                user=self.request.user
+            ).values_list('worker_profile_id', flat=True)
+            queryset = queryset.filter(id__in=favorite_worker_ids)
+            
         print(f"Nombre de profils trouvés: {queryset.count()}")
         return self.add_favorite_field(queryset)
 
@@ -54,7 +63,6 @@ class WorkerProfileListCreateView(generics.ListCreateAPIView):
             print(f"Is favorite: {is_favorite}")
             setattr(worker_profile, "is_favorite", is_favorite)
         return queryset
-
 
 class WorkerProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
