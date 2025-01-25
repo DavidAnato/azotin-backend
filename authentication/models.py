@@ -59,11 +59,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     online_status = models.BooleanField(default=False)
 
     # Location fields
-    localisation_longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+    location_longitude = models.DecimalField(
+        max_digits=20, decimal_places=10, blank=True, null=True
     )
-    localisation_latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+    location_latitude = models.DecimalField(
+        max_digits=20, decimal_places=10, blank=True, null=True
     )
 
     # Google authentication fields

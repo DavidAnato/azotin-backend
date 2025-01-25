@@ -8,6 +8,7 @@ from .views import (
     UpdateWorkerProfileView,
     WorkerProfileDetailView,
     WorkerProfileListCreateView,
+    WorkerProfileSearchView,
     WorkerProfileSuggestionListView,
 )
 
@@ -51,5 +52,10 @@ urlpatterns = [
         "favorite-worker/<int:worker_profile_id>/toggle/",
         FavoriteWorkerToggleView.as_view(),
         name="favorite-worker-toggle",
+    ),
+    path(
+        "worker-profile-search/",
+        WorkerProfileSearchView.as_view(),
+        name="worker-profile-search",
     ),
 ]

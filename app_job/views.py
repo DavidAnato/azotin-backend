@@ -103,8 +103,10 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
             if not job_offer:
                 continue
 
-            # Déterminer le statut de l'offre
-            if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
+            # Déterminer le statut de l'offre de la même manière que dans JobOfferDetailView
+            if Job.objects.filter(
+                job_offer=job_offer, worker__user=user, completed=False
+            ).exists():
                 data["status"] = "in_progress"
             elif JobApplication.objects.filter(
                 job_offer=job_offer, worker__user=user
@@ -112,8 +114,10 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
                 data["status"] = "applied"
             elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
                 data["status"] = "completed"
+            elif Job.objects.filter(job_offer=job_offer, client__user=user).exists():
+                data["status"] = "in_progress"
             else:
-                data["status"] = None
+                data["status"] = False
 
             # Ajouter les informations supplémentaires
             data["is_favorite"] = job_offer.job_favorites.filter(user=user).exists()
@@ -188,7 +192,9 @@ class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
     def add_custom_fields(self, data_list, user):
         for data in data_list:
             job_offer = data
-            if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
+            if Job.objects.filter(
+                job_offer=job_offer, worker__user=user, completed=False
+            ).exists():
                 job_offer.status = "in_progress"
             elif JobApplication.objects.filter(
                 job_offer=job_offer, worker__user=user
@@ -196,8 +202,10 @@ class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
                 job_offer.status = "applied"
             elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
                 job_offer.status = "completed"
+            elif Job.objects.filter(job_offer=job_offer, client__user=user).exists():
+                job_offer.status = "in_progress"
             else:
-                job_offer.status = None
+                job_offer.status = False
 
             job_offer.is_favorite = JobFavorite.objects.filter(
                 user=user, job_offer=job_offer
@@ -365,17 +373,10 @@ class JobOfferSuggestionListView(generics.ListAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        print(
-            "L'utilisateur a lancé la requête pour obtenir des suggestions d'offres d'emploi."
-        )
         user = self.request.user
 
         if WorkerProfile.objects.filter(user=user).exists():
             worker_profile = WorkerProfile.objects.get(user=user)
-            print(
-                f"Catégorie du profil : {worker_profile.category}, "
-                f"Sous-catégorie : {worker_profile.title}"
-            )
 
             # Filtrage initial
             jobs_offers = JobOffer.objects.filter(is_filled=False)
@@ -383,38 +384,21 @@ class JobOfferSuggestionListView(generics.ListAPIView):
             # Filtrer par catégorie
             if worker_profile.category:
                 jobs_offers = jobs_offers.filter(category=worker_profile.category)
-                print(
-                    f"Offres correspondant à la catégorie ({worker_profile.category}): "
-                    f"{jobs_offers.count()}"
-                )
 
             # Filtrer par sous-catégorie
             if worker_profile.title:
                 sub_category_offers = JobOffer.objects.filter(
                     sub_category=worker_profile.title
                 )
-                print(
-                    f"Offres correspondant à la sous-catégorie ({worker_profile.title}): "
-                    f"{sub_category_offers.count()}"
-                )
                 # Union des résultats
                 jobs_offers = jobs_offers | sub_category_offers
 
-            print(f"Nombre total d'offres après union : {jobs_offers.count()}")
-
             # Vérifier les résultats finaux
             if not jobs_offers.exists():
-                print("Aucune offre ne correspond aux critères.")
+                return JobOffer.objects.none()
             else:
-                print("######################################")
-                print("Liste des offres envoyées :")
-                for job in jobs_offers:
-                    print(f" - Offre ID : {job.id}, Titre : {job.title}")
-                print("######################################")
-
-            return jobs_offers
+                return jobs_offers
         else:
-            print("Aucun profil de travailleur associé à cet utilisateur.")
             return JobOffer.objects.none()
 
     def list(self, request, *args, **kwargs):

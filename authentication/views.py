@@ -54,7 +54,6 @@ class UserRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        print(request)
         # Créer le profil en fonction du type de profil
         profile_type = serializer.validated_data.get("profile_type")
         if profile_type == "worker":
@@ -151,7 +150,6 @@ class EmailValidateRequestView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
-        print(email)
 
         try:
             user = User.objects.get(email=email)
@@ -258,7 +256,9 @@ class BaseLoginView(APIView):
                 client_profile = ClientProfileSerializer(user.client_profile).data
                 user_data["client_profile"] = client_profile
         except Exception as e:
-            print(f"Error enriching user data: {e}")
+            return Response(
+                f"Error enriching user data: {e}", status=status.HTTP_400_BAD_REQUEST
+            )
 
         return user_data
 
@@ -630,12 +630,9 @@ class CodePINCreateView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        print(user)
         code_pin = request.data.get("code_pin")
-        print(code_pin)
         user.code_pin = code_pin
         user.save()
-        print(user.code_pin)
         return Response(
             {"detail": "Code PIN created successfully."}, status=status.HTTP_201_CREATED
         )
