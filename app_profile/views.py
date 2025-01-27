@@ -326,12 +326,16 @@ class WorkerProfileSearchView(generics.ListAPIView):
 
         price_min = self.request.query_params.get("min_price", None)
         if price_min:
-            price_min_converted = self.convert_price(float(price_min), price_frequency, "hour")
+            price_min_converted = self.convert_price(
+                float(price_min), price_frequency, "hour"
+            )
             queryset = queryset.filter(price__gte=price_min_converted)
 
         price_max = self.request.query_params.get("max_price", None)
         if price_max:
-            price_max_converted = self.convert_price(float(price_max), price_frequency, "hour")
+            price_max_converted = self.convert_price(
+                float(price_max), price_frequency, "hour"
+            )
             queryset = queryset.filter(price__lte=price_max_converted)
 
         city = self.request.query_params.get("location", None)

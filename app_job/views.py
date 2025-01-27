@@ -542,12 +542,16 @@ class JobSearchView(generics.ListAPIView):
 
         min_price = self.request.query_params.get("min_price")
         if min_price:
-            min_price_converted = self.convert_price(float(min_price), price_frequency, "hour")
+            min_price_converted = self.convert_price(
+                float(min_price), price_frequency, "hour"
+            )
             queryset = queryset.filter(price__gte=min_price_converted)
 
         max_price = self.request.query_params.get("max_price")
         if max_price:
-            max_price_converted = self.convert_price(float(max_price), price_frequency, "hour")
+            max_price_converted = self.convert_price(
+                float(max_price), price_frequency, "hour"
+            )
             queryset = queryset.filter(price__lte=max_price_converted)
 
         service_date = self.request.query_params.get("service_date")
@@ -587,7 +591,9 @@ class JobSearchView(generics.ListAPIView):
 
             if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "in_progress"
-            elif JobApplication.objects.filter(job_offer=job_offer, worker__user=user).exists():
+            elif JobApplication.objects.filter(
+                job_offer=job_offer, worker__user=user
+            ).exists():
                 data["status"] = "applied"
             elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
                 data["status"] = "completed"
