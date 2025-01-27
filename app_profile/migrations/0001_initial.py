@@ -83,7 +83,7 @@ class Migration(migrations.Migration):
                     models.IntegerField(default=0, help_text="Years of experience"),
                 ),
                 (
-                    "hourly_rate",
+                    "price",
                     models.DecimalField(
                         blank=True, decimal_places=2, max_digits=6, null=True
                     ),

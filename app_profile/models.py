@@ -22,8 +22,17 @@ class WorkerProfile(models.Model):
 
     skills = models.TextField(max_length=500, blank=True)
     experience = models.IntegerField(default=0, help_text="Years of experience")
-    hourly_rate = models.DecimalField(
-        max_digits=6, decimal_places=2, blank=True, null=True
+    price = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    frequency = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=[
+            ("hour", "Hour"),
+            ("day", "Day"),
+            ("week", "Week"),
+            ("month", "Month"),
+        ],
+        help_text="Frequency of the job.",
     )
     certifications = models.TextField(max_length=500, blank=True)
     available_for_hire = models.BooleanField(default=True)

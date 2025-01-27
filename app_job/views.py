@@ -317,6 +317,7 @@ class JobCreateView(APIView):
             description=job_application.job_offer.description,
             location=job_application.job_offer.location,
             price=job_application.proposed_price,
+            frequency=job_application.job_offer.frequency,
         )
 
         serializer = JobSerializer(job)
@@ -525,42 +526,38 @@ class JobSearchView(generics.ListAPIView):
             )
 
         # Filtres supplémentaires
-        # Filtrage exact basé sur le nom de la catégorie
         category = self.request.query_params.get("category")
         if category:
             queryset = queryset.filter(category__name__iexact=category)
 
-        # Filtrage exact basé sur le nom de la sous-catégorie
         sub_category = self.request.query_params.get("sub_category")
         if sub_category:
             queryset = queryset.filter(sub_category__name__iexact=sub_category)
 
-        # Recherche partielle par localisation
         location = self.request.query_params.get("location")
         if location:
             queryset = queryset.filter(location__icontains=location)
 
-        # Filtrer les jobs dont le prix est supérieur ou égal au minimum spécifié
+        price_frequency = self.request.query_params.get("price_frequency", "hour")
+
         min_price = self.request.query_params.get("min_price")
         if min_price:
-            queryset = queryset.filter(price__gte=min_price)
+            min_price_converted = self.convert_price(float(min_price), price_frequency, "hour")
+            queryset = queryset.filter(price__gte=min_price_converted)
 
-        # Filtrer les jobs dont le prix est inférieur ou égal au maximum spécifié
         max_price = self.request.query_params.get("max_price")
         if max_price:
-            queryset = queryset.filter(price__lte=max_price)
+            max_price_converted = self.convert_price(float(max_price), price_frequency, "hour")
+            queryset = queryset.filter(price__lte=max_price_converted)
 
-        # Filtrer les jobs pour une date de service exacte
         service_date = self.request.query_params.get("service_date")
         if service_date:
             queryset = queryset.filter(service_date=service_date)
 
-        # Filtrer les jobs par type de contrat
-        type = self.request.query_params.get("type")
-        if type:
-            queryset = queryset.filter(type__iexact=type)
+        job_type = self.request.query_params.get("type")
+        if job_type:
+            queryset = queryset.filter(type__iexact=job_type)
 
-        # Retourne le queryset filtré
         return queryset
 
     def list(self, request, *args, **kwargs):
@@ -576,19 +573,11 @@ class JobSearchView(generics.ListAPIView):
         return Response(serializer.data)
 
     def add_custom_fields(self, data_list, user):
-        """
-        Ajoute les champs personnalisés `status`, `is_favorite`,
-        `applicant_count` et `applicants` aux données de chaque offre.
-        """
-        # Précharger les relations nécessaires
         job_offer_ids = [data["id"] for data in data_list]
         job_offers = JobOffer.objects.filter(id__in=job_offer_ids).prefetch_related(
-            "job_favorites",  # Pour les favoris
-            "applications__worker__user",  # Pour les candidatures
-            "job",  # Pour vérifier le statut de l'offre
+            "job_favorites", "applications__worker__user", "job"
         )
 
-        # Créer un dictionnaire pour un accès rapide
         job_offer_dict = {job.id: job for job in job_offers}
 
         for data in data_list:
@@ -596,22 +585,17 @@ class JobSearchView(generics.ListAPIView):
             if not job_offer:
                 continue
 
-            # Déterminer le statut de l'offre
             if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "in_progress"
-            elif JobApplication.objects.filter(
-                job_offer=job_offer, worker__user=user
-            ).exists():
+            elif JobApplication.objects.filter(job_offer=job_offer, worker__user=user).exists():
                 data["status"] = "applied"
             elif Job.objects.filter(job_offer=job_offer, completed=True).exists():
                 data["status"] = "completed"
             else:
                 data["status"] = None
 
-            # Ajouter les informations supplémentaires
             data["is_favorite"] = job_offer.job_favorites.filter(user=user).exists()
             data["applicant_count"] = job_offer.applications.count()
-            # Je veux un try catch pour éviter les erreurs si le worker n'a pas de profile_picture
             data["applicants"] = []
             for app in job_offer.applications.all():
                 try:
@@ -640,6 +624,16 @@ class JobSearchView(generics.ListAPIView):
                         "picture_url": picture_url,
                     }
                 )
+
+    @staticmethod
+    def convert_price(price, from_frequency, to_frequency):
+        conversion_rates = {
+            "hour": {"hour": 1, "day": 8, "week": 40, "month": 160},
+            "day": {"hour": 1 / 8, "day": 1, "week": 5, "month": 20},
+            "week": {"hour": 1 / 40, "day": 1 / 5, "week": 1, "month": 4},
+            "month": {"hour": 1 / 160, "day": 1 / 20, "week": 1 / 4, "month": 1},
+        }
+        return price * conversion_rates[from_frequency][to_frequency]
 
 
 # JobFavorite Toggle

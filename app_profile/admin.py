@@ -22,6 +22,7 @@ class WorkerProfileAdmin(admin.ModelAdmin):
                     "category",
                     "skills",
                     "experience",
+                    "price",
                     "hourly_rate",
                     "certifications",
                     "available_for_hire",

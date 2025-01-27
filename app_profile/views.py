@@ -296,34 +296,13 @@ class WorkerProfileSearchView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = ProfilePagination
 
-    # Champs pour la recherche :
-    # - title
-    # - category
-    # - user.first_name, user.last_name (ou leur concaténation)
-
-    # Champs pour le filtrage :
-    # - title
-    # - category
-    # - hourly_rate
-    # - user.city
-
     def get_queryset(self):
-        # Récupérer la requête de base
         queryset = super().get_queryset()
-
-        # Appliquer la logique de recherche
         queryset = self.apply_search(queryset)
-
-        # Appliquer la logique de filtrage
         queryset = self.apply_filters(queryset)
-
-        # Ajouter le champ "is_favorite" aux résultats
         return self.add_favorite_field(queryset)
 
     def apply_search(self, queryset):
-        """
-        Applique la logique de recherche en fonction des champs définis.
-        """
         search_query = self.request.query_params.get("query", "").strip()
         if search_query:
             queryset = queryset.filter(
@@ -335,28 +314,26 @@ class WorkerProfileSearchView(generics.ListAPIView):
         return queryset
 
     def apply_filters(self, queryset):
-        """
-        Applique la logique de filtrage en fonction des champs définis.
-        """
-        # Filtrer par titre
         title = self.request.query_params.get("title", None)
         if title:
             queryset = queryset.filter(title__name__icontains=title)
 
-        # Filtrer par catégorie
         category = self.request.query_params.get("category", None)
         if category:
             queryset = queryset.filter(category__name__icontains=category)
 
-        # Filtrer par tarif horaire
-        hourly_rate_min = self.request.query_params.get("min_price", None)
-        hourly_rate_max = self.request.query_params.get("max_price", None)
-        if hourly_rate_min:
-            queryset = queryset.filter(hourly_rate__gte=hourly_rate_min)
-        if hourly_rate_max:
-            queryset = queryset.filter(hourly_rate__lte=hourly_rate_max)
+        price_frequency = self.request.query_params.get("price_frequency", "hour")
 
-        # Filtrer par ville de l'utilisateur
+        price_min = self.request.query_params.get("min_price", None)
+        if price_min:
+            price_min_converted = self.convert_price(float(price_min), price_frequency, "hour")
+            queryset = queryset.filter(price__gte=price_min_converted)
+
+        price_max = self.request.query_params.get("max_price", None)
+        if price_max:
+            price_max_converted = self.convert_price(float(price_max), price_frequency, "hour")
+            queryset = queryset.filter(price__lte=price_max_converted)
+
         city = self.request.query_params.get("location", None)
         if city:
             queryset = queryset.filter(user__city__icontains=city)
@@ -364,12 +341,19 @@ class WorkerProfileSearchView(generics.ListAPIView):
         return queryset
 
     def add_favorite_field(self, queryset):
-        """
-        Ajoute un champ "is_favorite" indiquant si un profil est marqué comme favori par l'utilisateur actuel.
-        """
         user = self.request.user
         for worker_profile in queryset:
             worker_profile.is_favorite = FavoriteWorker.objects.filter(
                 user=user, worker_profile=worker_profile
             ).exists()
         return queryset
+
+    @staticmethod
+    def convert_price(price, from_frequency, to_frequency):
+        conversion_rates = {
+            "hour": {"hour": 1, "day": 8, "week": 40, "month": 160},
+            "day": {"hour": 1 / 8, "day": 1, "week": 5, "month": 20},
+            "week": {"hour": 1 / 40, "day": 1 / 5, "week": 1, "month": 4},
+            "month": {"hour": 1 / 160, "day": 1 / 20, "week": 1 / 4, "month": 1},
+        }
+        return price * conversion_rates[from_frequency][to_frequency]
