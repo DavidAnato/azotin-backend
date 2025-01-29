@@ -26,6 +26,7 @@ class WorkerProfile(models.Model):
     frequency = models.CharField(
         max_length=50,
         blank=True,
+        
         choices=[
             ("hour", "Hour"),
             ("day", "Day"),

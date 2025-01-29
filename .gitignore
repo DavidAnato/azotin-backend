@@ -138,3 +138,5 @@ cython_debug/
 # Media files
 media/
 
+# Django migrations
+migrations/

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "daphne",
     "django.contrib.staticfiles",
     "django.contrib.sites",
     # corsheader
@@ -47,11 +48,14 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     # swagger
     "drf_yasg",
+    "channels",
+    "channels_redis",
     # local app
     "authentication",
     "app_profile",
     "app_job",
     "app_backoffice",
+    "app_messaging",
 ]
 
 MIDDLEWARE = [
@@ -87,6 +91,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "jobhub_api.wsgi.application"
 
+ASGI_APPLICATION = "jobhub_api.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
