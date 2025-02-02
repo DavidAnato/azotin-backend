@@ -63,6 +63,12 @@ urlpatterns = [
         ),
     ),
     path(
+        "messaging/",
+        include(
+            "app_messaging.urls",
+        ),
+    ),
+    path(
         "backoffice/",
         include(
             "app_backoffice.urls",

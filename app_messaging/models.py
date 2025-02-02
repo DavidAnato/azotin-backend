@@ -5,8 +5,11 @@ User = get_user_model()
 
 
 class Conversation(models.Model):
-    participants = models.ManyToManyField(User, related_name="conversations")
     created_at = models.DateTimeField(auto_now_add=True)
+    participants = models.ManyToManyField(
+        User,
+        related_name='conversations'
+    )
 
 
 class Message(models.Model):
@@ -18,6 +21,15 @@ class Message(models.Model):
     sender = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="sent_messages"
     )
-    content = models.TextField()
+    content = models.TextField(null=True, blank=True)
+    jobOffer = models.ForeignKey('app_job.JobOffer', on_delete=models.CASCADE, related_name="messages", null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=MESSAGE_STATUS, default="sent")
+    edited_at = models.DateTimeField(auto_now=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+
+class MessageMedia(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="medias")
+    file = models.FileField(upload_to="media/")
+    created_at = models.DateTimeField(auto_now_add=True)
