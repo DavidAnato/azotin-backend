@@ -1,8 +1,8 @@
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
@@ -31,10 +31,12 @@ class ConversationCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        participants = serializer.validated_data.get('participants', [])
+        participants = serializer.validated_data.get("participants", [])
         if not participants:
-            raise ValidationError({"participants": "Au moins un autre participant est requis"})
-            
+            raise ValidationError(
+                {"participants": "Au moins un autre participant est requis"}
+            )
+
         conversation = serializer.save()
         conversation.participants.add(self.request.user)
         return conversation
@@ -51,14 +53,14 @@ class MessageListView(generics.ListAPIView):
             messages = Message.objects.filter(conversation_id=conversation_id).order_by(
                 "-timestamp"
             )
-            
+
             # Marquer comme lus les messages non envoyés par l'utilisateur courant
             Message.objects.filter(
                 conversation_id=conversation_id,
                 status__in=["sent", "received"],
-                conversation__participants=self.request.user
+                conversation__participants=self.request.user,
             ).exclude(sender=self.request.user).update(status="read")
-            
+
             return messages
         return Message.objects.none()
 
@@ -76,12 +78,11 @@ class MarkMessagesAsReadView(APIView):
 
         # Vérifier si l'utilisateur est participant de la conversation
         if not Conversation.objects.filter(
-            id=conversation_id,
-            participants=request.user
+            id=conversation_id, participants=request.user
         ).exists():
             return Response(
                 {"error": "Vous n'êtes pas autorisé à accéder à cette conversation"},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Marquer tous les messages non lus comme lus
