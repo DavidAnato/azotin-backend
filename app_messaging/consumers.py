@@ -20,7 +20,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         is_participant = await self.is_conversation_participant()
         if not is_participant:
-            print("\033[91mConnection refusée: L'utilisateur n'est pas participant\033[0m")
+            print(
+                "\033[91mConnection refusée: L'utilisateur n'est pas participant\033[0m"
+            )
             await self.close(code=403)
             return
 
@@ -60,7 +62,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         file = data.get("file")
         job_offer_id = data.get("job_offer_id")
 
-        print(f"\033[96mNouveau message de {sender_id}:\nContenu: {message_content}\nFichier: {file}\nOffre: {job_offer_id}\033[0m")
+        print(
+            f"\033[96mNouveau message de {sender_id}:\n"
+            f"Contenu: {message_content}\n"
+            f"Fichier: {file}\n"
+            f"Offre: {job_offer_id}\033[0m"
+        )
 
         # Vérifier qu'au moins un type de contenu est présent
         if not any([message_content, file, job_offer_id]):
@@ -72,7 +79,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             content=message_content,
             sender_id=sender_id,
             file=file,
-            job_offer_id=job_offer_id
+            job_offer_id=job_offer_id,
         )
 
         print(f"\033[92mMessage sauvegardé avec l'ID: {saved_message.id}\033[0m")
@@ -88,20 +95,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Ajouter les données spécifiques selon le type de contenu
         if message_content:
             message_data["content"] = message_content
-        
+
         if file and saved_message.medias.exists():
             message_data["media_url"] = saved_message.medias.first().file.url
-        
+
         if job_offer_id:
             job_offer_data = await self.get_job_offer_data(job_offer_id)
             message_data["job_offer"] = job_offer_data
 
         # Envoyer au groupe de conversation
         print(f"\033[94mEnvoi au groupe {self.room_group_name}\033[0m")
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            message_data
-        )
+        await self.channel_layer.group_send(self.room_group_name, message_data)
 
         # Préparer les données pour la mise à jour des participants
         update_data = {
@@ -129,20 +133,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             unread_count = await self.get_unread_count(
                 participant_id, self.conversation_id
             )
-            participant_data = {
-                **update_data,
-                "unread_count": unread_count
-            }
+            participant_data = {**update_data, "unread_count": unread_count}
             await self.channel_layer.group_send(
-                f"user_messages_{participant_id}",
-                participant_data
+                f"user_messages_{participant_id}", participant_data
             )
 
     async def handle_mark_read(self, data):
         conversation_id = self.conversation_id
         user_id = self.scope["user"].id
 
-        print(f"\033[96mMarquage comme lu - Conversation: {conversation_id}, Utilisateur: {user_id}\033[0m")
+        print(
+            f"\033[96mMarquage comme lu - Conversation: {conversation_id}, Utilisateur: {user_id}\033[0m"
+        )
 
         await self.mark_messages_as_read(conversation_id, user_id)
 
@@ -254,12 +256,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Supprimer le type du message avant l'envoi
         message_data = event.copy()
         message_type = message_data.pop("type")
-        
+
         print(f"\033[94mEnvoi du message au client - Type: {message_type}\033[0m")
-        await self.send(text_data=json.dumps({
-            "type": message_type,
-            **message_data
-        }))
+        await self.send(text_data=json.dumps({"type": message_type, **message_data}))
 
     async def messages_read_update(self, event):
         print("\033[94mEnvoi de la mise à jour de lecture\033[0m")
@@ -305,13 +304,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 job_offer_id=job_offer_id,
                 status="sent",
             )
-            
+
             if file:
-                MessageMedia.objects.create(
-                    message=message,
-                    file=file
-                )
-                
+                MessageMedia.objects.create(message=message, file=file)
+
             return message
         except Conversation.DoesNotExist:
             print("\033[91mErreur: Conversation non trouvée\033[0m")
@@ -321,7 +317,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_job_offer_data(self, job_offer_id):
         from app_job.models import JobOffer
         from app_job.serializers import JobOfferSerializer
-        
+
         try:
             print(f"\033[94mRécupération des données de l'offre {job_offer_id}\033[0m")
             job_offer = JobOffer.objects.get(id=job_offer_id)
@@ -373,7 +369,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation = Conversation.objects.get(id=self.conversation_id)
             return conversation.participants.filter(id=self.scope["user"].id).exists()
         except Conversation.DoesNotExist:
-            print(f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m")
+            print(
+                f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m"
+            )
             return False
 
     @database_sync_to_async
@@ -394,7 +392,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             return is_last
         except Conversation.DoesNotExist:
-            print(f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m")
+            print(
+                f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m"
+            )
             return False
 
     @database_sync_to_async

@@ -1,5 +1,4 @@
 from rest_framework import generics, status
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -31,20 +30,20 @@ class ConversationCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        other_participant_id = request.query_params.get('participant_id')
-        
+        other_participant_id = request.query_params.get("participant_id")
+
         if not other_participant_id:
             return Response(
                 {"error": "L'ID du participant est requis"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Rechercher une conversation existante avec les deux participants
-        existing_conversation = Conversation.objects.filter(
-            participants=self.request.user
-        ).filter(
-            participants=other_participant_id
-        ).first()
+        existing_conversation = (
+            Conversation.objects.filter(participants=self.request.user)
+            .filter(participants=other_participant_id)
+            .first()
+        )
 
         if existing_conversation:
             serializer = self.get_serializer(existing_conversation)
@@ -53,10 +52,11 @@ class ConversationCreateView(generics.CreateAPIView):
         # Créer une nouvelle conversation si elle n'existe pas
         conversation = Conversation.objects.create()
         conversation.participants.add(self.request.user, other_participant_id)
-        
+
         serializer = self.get_serializer(conversation)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
+
 class MessageListView(generics.ListAPIView):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
