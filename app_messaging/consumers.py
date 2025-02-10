@@ -20,9 +20,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         is_participant = await self.is_conversation_participant()
         if not is_participant:
-            print(
-                "\033[91mConnection refusée: L'utilisateur n'est pas participant\033[0m"
-            )
+            print("\033[91mConnection refusée: L'utilisateur n'est pas participant\033[0m")
             await self.close(code=403)
             return
 
@@ -79,7 +77,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             content=message_content,
             sender_id=sender_id,
             file=file,
-            job_offer_id=job_offer_id,
+            job_offer_id=job_offer_id
         )
 
         print(f"\033[92mMessage sauvegardé avec l'ID: {saved_message.id}\033[0m")
@@ -89,7 +87,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "chat_message",
             "message_id": saved_message.id,
             "sender_id": sender_id,
-            "timestamp": saved_message.timestamp.isoformat(),
+            "timestamp": saved_message.timestamp.isoformat()
         }
 
         # Ajouter les données spécifiques selon le type de contenu
@@ -115,7 +113,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "message_id": saved_message.id,
             "sender_id": sender_id,
             "timestamp": saved_message.timestamp.isoformat(),
-            "status": "sent",
+            "status": "sent"
         }
 
         # Ajouter les mêmes données spécifiques
@@ -131,11 +129,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"\033[94mEnvoi aux participants: {conversation_participants}\033[0m")
         for participant_id in conversation_participants:
             unread_count = await self.get_unread_count(
-                participant_id, self.conversation_id
+                participant_id,
+                self.conversation_id
             )
             participant_data = {**update_data, "unread_count": unread_count}
             await self.channel_layer.group_send(
-                f"user_messages_{participant_id}", participant_data
+                f"user_messages_{participant_id}",
+                participant_data
             )
 
     async def handle_mark_read(self, data):
@@ -157,8 +157,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "update_type": "messages_read",
                     "conversation_id": conversation_id,
                     "reader_id": user_id,
-                    "timestamp": timezone.now().isoformat(),
-                },
+                    "timestamp": timezone.now().isoformat()
+                }
             )
 
     async def handle_edit_message(self, data):
@@ -181,8 +181,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "message_edited_update",
                     "message_id": message_id,
                     "content": new_content,
-                    "edited_at": updated_message.edited_at.isoformat(),
-                },
+                    "edited_at": updated_message.edited_at.isoformat()
+                }
             )
 
             # Check if this is the last message in the conversation
@@ -191,7 +191,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 conversation_participants = await self.get_conversation_participants()
                 for participant_id in conversation_participants:
                     unread_count = await self.get_unread_count(
-                        participant_id, self.conversation_id
+                        participant_id,
+                        self.conversation_id
                     )
                     await self.channel_layer.group_send(
                         f"user_messages_{participant_id}",
@@ -202,8 +203,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             "old_content": old_content,
                             "content": new_content,
                             "edited_at": updated_message.edited_at.isoformat(),
-                            "unread_count": unread_count,
-                        },
+                            "unread_count": unread_count
+                        }
                     )
 
     async def handle_delete_message(self, data):
@@ -225,31 +226,33 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Notify chat room participants about the deletion
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {"type": "message_deleted_update", "message_id": message_id},
+                {"type": "message_deleted_update", "message_id": message_id}
             )
 
             if is_last:
                 conversation_participants = await self.get_conversation_participants()
                 for participant_id in conversation_participants:
                     unread_count = await self.get_unread_count(
-                        participant_id, self.conversation_id
+                        participant_id,
+                        self.conversation_id
                     )
                     message_data = {
                         "type": "message_update",
                         "update_type": "message_deleted",
                         "conversation_id": self.conversation_id,
                         "message_id": message_id,
-                        "unread_count": unread_count,
+                        "unread_count": unread_count
                     }
 
                     if new_last_message:
                         message_data["new_last_message"] = {
                             "content": new_last_message.content,
-                            "timestamp": new_last_message.timestamp.isoformat(),
+                            "timestamp": new_last_message.timestamp.isoformat()
                         }
 
                     await self.channel_layer.group_send(
-                        f"user_messages_{participant_id}", message_data
+                        f"user_messages_{participant_id}",
+                        message_data
                     )
 
     async def chat_message(self, event):
@@ -267,7 +270,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "messages_read",
                     "reader_id": event["reader_id"],
-                    "timestamp": event["timestamp"],
+                    "timestamp": event["timestamp"]
                 }
             )
         )
@@ -280,7 +283,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "message_edited",
                     "message_id": event["message_id"],
                     "content": event["content"],
-                    "edited_at": event["edited_at"],
+                    "edited_at": event["edited_at"]
                 }
             )
         )
@@ -302,7 +305,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 sender_id=sender_id,
                 content=content,
                 job_offer_id=job_offer_id,
-                status="sent",
+                status="sent"
             )
 
             if file:
@@ -317,12 +320,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_job_offer_data(self, job_offer_id):
         from app_job.models import JobOffer
         from app_job.serializers import JobOfferSerializer
-
         try:
             print(f"\033[94mRécupération des données de l'offre {job_offer_id}\033[0m")
             job_offer = JobOffer.objects.get(id=job_offer_id)
             serialized_data = JobOfferSerializer(job_offer).data
-            print(f"\033[92mDonnées de l'offre récupérées avec succès\033[0m")
+            print("\033[92mDonnées de l'offre récupérées avec succès\033[0m")
             return serialized_data
         except JobOffer.DoesNotExist:
             print(f"\033[91mErreur: Offre {job_offer_id} non trouvée\033[0m")
@@ -334,14 +336,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def mark_messages_as_read(self, conversation_id, user_id):
         Message.objects.filter(
-            conversation_id=conversation_id, status__in=["sent", "received"]
+            conversation_id=conversation_id,
+            status__in=["sent", "received"]
         ).exclude(sender_id=user_id).update(status="read", read_at=timezone.now())
 
     @database_sync_to_async
     def update_message(self, message_id, new_content, user_id):
         try:
             message = Message.objects.get(
-                id=message_id, sender_id=user_id, conversation_id=self.conversation_id
+                id=message_id,
+                sender_id=user_id,
+                conversation_id=self.conversation_id
             )
             message.content = new_content
             message.edited_at = timezone.now()
@@ -355,7 +360,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def delete_message(self, message_id, user_id):
         try:
             message = Message.objects.get(
-                id=message_id, sender_id=user_id, conversation_id=self.conversation_id
+                id=message_id,
+                sender_id=user_id,
+                conversation_id=self.conversation_id
             )
             message.delete()
             return True
@@ -369,9 +376,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation = Conversation.objects.get(id=self.conversation_id)
             return conversation.participants.filter(id=self.scope["user"].id).exists()
         except Conversation.DoesNotExist:
-            print(
-                f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m"
-            )
+            print(f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m")
             return False
 
     @database_sync_to_async
@@ -392,9 +397,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             return is_last
         except Conversation.DoesNotExist:
-            print(
-                f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m"
-            )
+            print(f"\033[91mErreur: Conversation {self.conversation_id} non trouvée\033[0m")
             return False
 
     @database_sync_to_async
@@ -413,7 +416,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return (
                 Message.objects.filter(
                     conversation_id=self.conversation_id,
-                    timestamp__lt=current_message.timestamp,
+                    timestamp__lt=current_message.timestamp
                 )
                 .order_by("-timestamp")
                 .first()
@@ -428,7 +431,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             Message.objects.filter(
                 conversation_id=conversation_id,
                 status__in=["sent", "received"],
-                conversation__participants=user_id,
+                conversation__participants=user_id
             )
             .exclude(sender_id=user_id)
             .count()
@@ -471,8 +474,8 @@ class MessageListConsumer(AsyncWebsocketConsumer):
                             "media_url": event.get("media_url"),
                             "job_offer": event.get("job_offer"),
                             "timestamp": event["timestamp"],
-                            "status": event["status"],
-                        },
+                            "status": event["status"]
+                        }
                     }
                 )
             )
@@ -485,7 +488,7 @@ class MessageListConsumer(AsyncWebsocketConsumer):
                         "conversation_id": event["conversation_id"],
                         "reader_id": event["reader_id"],
                         "timestamp": event["timestamp"],
-                        "unread_count": 0,
+                        "unread_count": 0
                     }
                 )
             )
@@ -499,7 +502,7 @@ class MessageListConsumer(AsyncWebsocketConsumer):
                         "unread_count": event.get("unread_count", 0),
                         "message_id": event["message_id"],
                         "content": event["content"],
-                        "edited_at": event["edited_at"],
+                        "edited_at": event["edited_at"]
                     }
                 )
             )
@@ -509,7 +512,7 @@ class MessageListConsumer(AsyncWebsocketConsumer):
                 "type": "message_deleted",
                 "conversation_id": event["conversation_id"],
                 "unread_count": event.get("unread_count", 0),
-                "message_id": event["message_id"],
+                "message_id": event["message_id"]
             }
 
             if "new_last_message" in event:
