@@ -19,7 +19,7 @@ class Message(models.Model):
         User, on_delete=models.CASCADE, related_name="sent_messages"
     )
     content = models.TextField(null=True, blank=True)
-    jobOffer = models.ForeignKey(
+    job_offer = models.ForeignKey(
         "app_job.JobOffer",
         on_delete=models.CASCADE,
         related_name="messages",

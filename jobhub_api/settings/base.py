@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "app_job",
     "app_backoffice",
     "app_messaging",
+    "app_notification",
 ]
 
 MIDDLEWARE = [

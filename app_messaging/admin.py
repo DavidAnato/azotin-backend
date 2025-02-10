@@ -20,7 +20,7 @@ class MessageAdmin(admin.ModelAdmin):
         "sender",
         "conversation",
         "content",
-        "jobOffer",
+        "job_offer",
         "timestamp",
         "status",
         "edited_at",
@@ -29,3 +29,8 @@ class MessageAdmin(admin.ModelAdmin):
     list_filter = ("status", "timestamp", "edited_at", "read_at")
     search_fields = ("content",)
     inlines = [MessageMediaInline]
+
+
+@admin.register(MessageMedia)
+class MessageMediaAdmin(admin.ModelAdmin):
+    list_display = ("message", "file")

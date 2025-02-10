@@ -30,18 +30,33 @@ class ConversationCreateView(generics.CreateAPIView):
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        participants = serializer.validated_data.get("participants", [])
-        if not participants:
-            raise ValidationError(
-                {"participants": "Au moins un autre participant est requis"}
+    def create(self, request, *args, **kwargs):
+        other_participant_id = request.query_params.get('participant_id')
+        
+        if not other_participant_id:
+            return Response(
+                {"error": "L'ID du participant est requis"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        conversation = serializer.save()
-        conversation.participants.add(self.request.user)
-        return conversation
+        # Rechercher une conversation existante avec les deux participants
+        existing_conversation = Conversation.objects.filter(
+            participants=self.request.user
+        ).filter(
+            participants=other_participant_id
+        ).first()
 
+        if existing_conversation:
+            serializer = self.get_serializer(existing_conversation)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
+        # Créer une nouvelle conversation si elle n'existe pas
+        conversation = Conversation.objects.create()
+        conversation.participants.add(self.request.user, other_participant_id)
+        
+        serializer = self.get_serializer(conversation)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
 class MessageListView(generics.ListAPIView):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]

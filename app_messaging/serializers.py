@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from app_job.serializers import JobOfferSerializer
+
 from .models import Conversation, Message
 
 User = get_user_model()
@@ -21,12 +23,15 @@ class ParticipantsSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
+    job_offer = JobOfferSerializer(read_only=True)
+
     class Meta:
         model = Message
         fields = [
             "id",
             "sender",
             "content",
+            "job_offer",
             "timestamp",
             "status",
             "edited_at",
