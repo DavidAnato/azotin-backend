@@ -69,6 +69,12 @@ urlpatterns = [
         ),
     ),
     path(
+        "notification/",
+        include(
+            "app_notification.urls",
+        ),
+    ),
+    path(
         "backoffice/",
         include(
             "app_backoffice.urls",

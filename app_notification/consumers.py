@@ -63,3 +63,47 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 "id", "message", "object", "created_at"
             )
         )
+
+
+class NotificationStatusConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope["user"]
+
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+
+        # Définir le nom du groupe unique pour l'utilisateur
+        self.user_group_name = f"notification_status_{self.user.id}"
+
+        # Rejoindre le groupe
+        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.accept()
+
+        # Envoyer le statut initial
+        has_unread = await self.has_unread_notifications()
+        await self.send_status_update(has_unread)
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "user_group_name"):
+            await self.channel_layer.group_discard(
+                self.user_group_name, self.channel_name
+            )
+
+    async def notification_status_update(self, event):
+        """Reçoit les mises à jour des signaux"""
+        await self.send_status_update(event["has_unread"])
+
+    async def send_status_update(self, has_unread):
+        """Méthode utilitaire pour envoyer les mises à jour"""
+        await self.send(
+            text_data=json.dumps(
+                {"type": "notification_status", "has_unread": has_unread}
+            )
+        )
+
+    @database_sync_to_async
+    def has_unread_notifications(self):
+        return UserNotification.objects.filter(
+            recipient=self.user, is_read=False
+        ).exists()

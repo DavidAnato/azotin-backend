@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -70,11 +71,16 @@ class MessageListView(generics.ListAPIView):
             )
 
             # Marquer comme lus les messages non envoyés par l'utilisateur courant
-            Message.objects.filter(
+            unread_messages = Message.objects.filter(
                 conversation_id=conversation_id,
                 status__in=["sent", "received"],
                 conversation__participants=self.request.user,
-            ).exclude(sender=self.request.user).update(status="read")
+            ).exclude(sender=self.request.user)
+
+            for message in unread_messages:
+                message.status = "read"
+                message.read_at = timezone.now()
+                message.save()
 
             return messages
         return Message.objects.none()
@@ -101,10 +107,15 @@ class MarkMessagesAsReadView(APIView):
             )
 
         # Marquer tous les messages non lus comme lus
-        Message.objects.filter(
+        unread_messages = Message.objects.filter(
             conversation_id=conversation_id,
             status__in=["sent", "received"],
             conversation__participants=request.user,
-        ).exclude(sender=request.user).update(status="read")
+        ).exclude(sender=request.user)
+
+        for message in unread_messages:
+            message.status = "read"
+            message.read_at = timezone.now()
+            message.save()
 
         return Response({"status": "success"})

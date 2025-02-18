@@ -333,9 +333,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def mark_messages_as_read(self, conversation_id, user_id):
-        Message.objects.filter(
+        # Récupérer les messages à marquer comme lus
+        messages = Message.objects.filter(
             conversation_id=conversation_id, status__in=["sent", "received"]
-        ).exclude(sender_id=user_id).update(status="read", read_at=timezone.now())
+        ).exclude(sender_id=user_id)
+
+        # Mettre à jour chaque message individuellement pour déclencher le signal
+        for message in messages:
+            message.status = "read"
+            message.read_at = timezone.now()
+            message.save()  # Ceci déclenchera le signal pour chaque message
 
     @database_sync_to_async
     def update_message(self, message_id, new_content, user_id):
@@ -516,3 +523,71 @@ class MessageListConsumer(AsyncWebsocketConsumer):
                 response_data["new_last_message"] = event["new_last_message"]
 
             await self.send(text_data=json.dumps(response_data))
+
+
+class UnreadMessageStatusConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope["user"]
+
+        if self.user.is_anonymous:
+            await self.close(code=403)
+            return
+
+        self.user_group_name = f"unread_status_{self.user.id}"
+        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.accept()
+
+        # Vérifier l'état initial des messages non lus
+        has_unread = await self.check_unread_messages()
+        await self.send_status_update(has_unread)
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "user_group_name"):
+            await self.channel_layer.group_discard(
+                self.user_group_name, self.channel_name
+            )
+
+    async def receive(self, text_data):
+        """
+        Gère les commandes reçues du client, notamment pour forcer une vérification
+        """
+        try:
+            data = json.loads(text_data)
+            if data.get("command") == "check_status":
+                has_unread = await self.check_unread_messages()
+                await self.send_status_update(has_unread)
+        except json.JSONDecodeError:
+            pass
+
+    async def unread_status_update(self, event):
+        """
+        Reçoit les mises à jour des signaux et les transmet au client
+        """
+        await self.send_status_update(event["has_unread"])
+
+    async def send_status_update(self, has_unread):
+        """
+        Méthode utilitaire pour envoyer les mises à jour au client
+        """
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "unread_status",
+                    "has_unread": has_unread,
+                    "timestamp": timezone.now().isoformat(),
+                }
+            )
+        )
+
+    @database_sync_to_async
+    def check_unread_messages(self):
+        """
+        Vérifie la présence de messages non lus dans toutes les conversations de l'utilisateur
+        """
+        return (
+            Message.objects.filter(
+                conversation__participants=self.user, status__in=["sent", "received"]
+            )
+            .exclude(sender=self.user)
+            .exists()
+        )

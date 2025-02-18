@@ -1,10 +1,14 @@
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from app_job.models import Job, JobApplication, JobOffer
 from app_notification.utils import create_user_notification
 from app_profile.models import WorkerProfile
+
+from .models import UserNotification
 
 User = get_user_model()
 
@@ -89,3 +93,19 @@ def notify_job_assignment(sender, instance, created, **kwargs):
                     "job_offer_id": instance.job_offer.id,
                 },
             )
+
+
+@receiver([post_save, post_delete], sender=UserNotification)
+def notification_status_update(sender, instance, **kwargs):
+    channel_layer = get_channel_layer()
+
+    # Vérifier s'il reste des notifications non lues
+    has_unread = UserNotification.objects.filter(
+        recipient=instance.recipient, is_read=False
+    ).exists()
+
+    # Envoyer la mise à jour au websocket
+    async_to_sync(channel_layer.group_send)(
+        f"notification_status_{instance.recipient.id}",
+        {"type": "notification_status_update", "has_unread": has_unread},
+    )
