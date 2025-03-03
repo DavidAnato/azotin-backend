@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from app_job.serializers import JobOfferSerializer
 
-from .models import Conversation, Message
+from .models import Conversation, Message, MessageMedia
 
 User = get_user_model()
 
@@ -22,8 +22,16 @@ class ParticipantsSerializer(serializers.ModelSerializer):
         ]
 
 
+class MessageMediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageMedia
+        fields = ["id", "message", "file"]
+        read_only_fields = ["message"]
+
+
 class MessageSerializer(serializers.ModelSerializer):
     job_offer = JobOfferSerializer(read_only=True)
+    medias = MessageMediaSerializer(many=True, read_only=True)
 
     class Meta:
         model = Message
@@ -31,6 +39,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "id",
             "sender",
             "content",
+            "medias",
             "job_offer",
             "timestamp",
             "status",

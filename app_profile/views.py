@@ -260,6 +260,33 @@ class WorkerProfileSuggestionListView(generics.ListAPIView):
         return queryset
 
 
+# Suggestion de profile travailleur par job
+class WorkerProfileSuggestionByJobListView(generics.ListAPIView):
+    queryset = WorkerProfile.objects.all()
+    serializer_class = WorkerProfileSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = ProfilePagination
+
+    def get_queryset(self):
+        job_id = self.kwargs.get("job_id")
+        try:
+            job_offer = JobOffer.objects.get(id=job_id)
+            # Filtrer les profils de travailleurs qui correspondent au titre du job
+            queryset = WorkerProfile.objects.filter(title=job_offer.sub_category)
+        except JobOffer.DoesNotExist:
+            queryset = WorkerProfile.objects.none()
+
+        queryset = self.add_favorite_field(queryset)
+        return queryset
+
+    def add_favorite_field(self, queryset):
+        for worker_profile in queryset:
+            worker_profile.is_favorite = FavoriteWorker.objects.filter(
+                user=self.request.user, worker_profile=worker_profile
+            ).exists()
+        return queryset
+
+
 # Favoris travailleur
 class FavoriteWorkerToggleView(APIView):
     permission_classes = [IsAuthenticated]

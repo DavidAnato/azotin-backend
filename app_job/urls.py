@@ -1,7 +1,9 @@
 from django.urls import path
 
 from .views import (
+    AskToMarkAsCompletedView,
     CategoryAndSubCategoryListView,
+    ClientJobStatisticsView,
     HandleJobFavoriteView,
     JobApplicationDetailView,
     JobApplicationListCreateView,
@@ -12,6 +14,7 @@ from .views import (
     JobOfferListCreateView,
     JobOfferSuggestionListView,
     JobSearchView,
+    MarkAsCompletedView,
 )
 
 urlpatterns = [
@@ -60,5 +63,21 @@ urlpatterns = [
         "categories-and-subcategories/",
         CategoryAndSubCategoryListView.as_view(),
         name="category-and-subcategory-list",
+    ),
+    # Client Job Statistics
+    path(
+        "client-job-statistics/",
+        ClientJobStatisticsView.as_view(),
+        name="client-job-statistics",
+    ),
+    path(
+        "ask-complete/<int:job_offer_id>/",
+        AskToMarkAsCompletedView.as_view(),
+        name="ask-complete-job",
+    ),
+    path(
+        "mark-completed/<int:job_offer_id>/",
+        MarkAsCompletedView.as_view(),
+        name="mark-job-completed",
     ),
 ]

@@ -43,8 +43,6 @@ class ClientProfileAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "preferred_payment_method",
-                    "total_jobs_posted",
-                    "job_completion_rate",
                     "average_spent",
                     "loyalty_points",
                 )

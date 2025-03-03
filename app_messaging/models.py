@@ -6,6 +6,7 @@ User = get_user_model()
 
 class Conversation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     participants = models.ManyToManyField(User, related_name="conversations")
 
 

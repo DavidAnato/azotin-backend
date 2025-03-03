@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app_notification.utils import create_user_notification
 from app_profile.models import ClientProfile, WorkerProfile
 
 from .models import Category, Job, JobApplication, JobFavorite, JobOffer, SubCategory
@@ -256,7 +257,13 @@ class JobApplicationListCreateView(generics.ListCreateAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        return JobApplication.objects.filter(job_offer__id=self.kwargs["job_offer_id"])
+        queryset = JobApplication.objects.filter(
+            job_offer__id=self.kwargs["job_offer_id"]
+        )
+        accepted = self.request.query_params.get("accepted", None)
+        if accepted == "true":
+            queryset = queryset.filter(status="accepted")
+        return queryset
 
     def perform_create(self, serializer):
         worker_profile = WorkerProfile.objects.get(user=self.request.user)
@@ -495,6 +502,7 @@ class JobOfferSuggestionListView(generics.ListAPIView):
 # - date de service
 # - type de contrat
 
+
 # Recherche de jobs par les champs suivants :
 # - query (prend en compte title, description, category, sub_category)
 # Filtres par les champs suivants :
@@ -505,8 +513,6 @@ class JobOfferSuggestionListView(generics.ListAPIView):
 # - prix maximum
 # - date de service
 # - type de contrat
-
-
 class JobSearchView(generics.ListAPIView):
     serializer_class = JobOfferSerializer
     permission_classes = [AllowAny]
@@ -673,3 +679,122 @@ class HandleJobFavoriteView(APIView):
             {"message": "Job offer added to favorites successfully."},
             status=status.HTTP_201_CREATED,
         )
+
+
+class ClientJobStatisticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Vérifier que l'utilisateur a un profil client
+            if not hasattr(request.user, "client_profile"):
+                return Response(
+                    {"error": "Profil client non trouvé"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            client_profile = request.user.client_profile
+
+            # Obtenir les statistiques
+            jobs_posted = JobOffer.objects.filter(client=client_profile).count()
+            jobs_in_progress = Job.objects.filter(
+                client=client_profile, completed=False
+            ).count()
+            jobs_completed = Job.objects.filter(
+                client=client_profile, completed=True
+            ).count()
+
+            data = {
+                "jobs_posted": jobs_posted,
+                "jobs_in_progress": jobs_in_progress,
+                "jobs_completed": jobs_completed,
+            }
+
+            return Response(data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Une erreur est survenue : {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class AskToMarkAsCompletedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, job_offer_id):
+        try:
+            # Trouver le job associé au job_offer_id
+            job = Job.objects.get(job_offer_id=job_offer_id)
+
+            # Vérifier que l'utilisateur est bien le travailleur de ce job
+            if job.worker.user != request.user:
+                return Response(
+                    {"detail": "Vous n'êtes pas autorisé à effectuer cette action."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Créer une notification pour le client
+            create_user_notification(
+                recipient=job.client.user,
+                message=f"{request.user.first_name} {request.user.last_name} "
+                f"a demandé de marquer le job '{job.job_offer.title}' comme terminé.",
+                object={
+                    "type": "ask_complete_job",
+                    "job_id": job.id,
+                    "job_title": job.job_offer.title,
+                    "worker_name": f"{request.user.first_name} {request.user.last_name}",
+                },
+            )
+
+            return Response(
+                {"detail": "Demande envoyée avec succès."}, status=status.HTTP_200_OK
+            )
+
+        except Job.DoesNotExist:
+            return Response(
+                {"detail": "Job non trouvé."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class MarkAsCompletedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, job_offer_id):
+        try:
+            # Trouver le job associé au job_offer_id
+            job = Job.objects.get(job_offer_id=job_offer_id)
+
+            # Vérifier que l'utilisateur est bien le client de ce job
+            if job.client.user != request.user:
+                return Response(
+                    {"detail": "Vous n'êtes pas autorisé à effectuer cette action."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Marquer le job comme terminé
+            job.completed = True
+            job.save()
+
+            # Créer une notification pour le travailleur
+            create_user_notification(
+                recipient=job.worker.user,
+                message=f"Le job '{job.job_offer.title}' a été marqué comme terminé par "
+                f"{request.user.first_name} {request.user.last_name}.",
+                object={
+                    "type": "job_completed",
+                    "job_id": job.id,
+                    "job_title": job.job_offer.title,
+                    "client_name": f"{request.user.first_name} {request.user.last_name}",
+                },
+            )
+
+            return Response(
+                {"detail": "Job marqué comme terminé avec succès."},
+                status=status.HTTP_200_OK,
+            )
+
+        except Job.DoesNotExist:
+            return Response(
+                {"detail": "Job non trouvé."}, status=status.HTTP_404_NOT_FOUND
+            )

@@ -14,7 +14,7 @@ class ConversationListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Conversation.objects.filter(participants=self.request.user).order_by(
-            "-created_at"
+            "-updated_at"
         )
 
 

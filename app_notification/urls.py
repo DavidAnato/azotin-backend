@@ -1,9 +1,11 @@
 from django.urls import path
 
 from .views import (
+    DeleteNotificationTokenAPIView,
     MarkAllNotificationsAsReadAPIView,
     MarkNotificationAsReadAPIView,
     NotificationListAPIView,
+    NotificationTokenAPIView,
 )
 
 urlpatterns = [
@@ -21,5 +23,15 @@ urlpatterns = [
         "mark-all-notifications-as-read/",
         MarkAllNotificationsAsReadAPIView.as_view(),
         name="mark-all-notifications-as-read",
+    ),
+    path(
+        "create-token/",
+        NotificationTokenAPIView.as_view(),
+        name="create-token",
+    ),
+    path(
+        "delete-token/",
+        DeleteNotificationTokenAPIView.as_view(),
+        name="delete-token",
     ),
 ]

@@ -1,3 +1,5 @@
+import asyncio
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
@@ -5,12 +7,22 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from app_job.models import Job, JobApplication, JobOffer
-from app_notification.utils import create_user_notification
+from app_notification.utils import create_user_notification, send_push_notification
 from app_profile.models import WorkerProfile
 
-from .models import UserNotification
+from .models import NotificationToken, UserNotification
 
 User = get_user_model()
+
+
+def run_async(coroutine):
+    """Exécute une coroutine de manière synchrone"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coroutine)
 
 
 # Signal pour nouveau utilisateur
@@ -26,6 +38,20 @@ def notify_new_user(sender, instance, created, **kwargs):
                 "email": instance.email,
             },
         )
+        # Envoyer notification push
+        tokens = NotificationToken.objects.filter(user=instance)
+        for token in tokens:
+            run_async(
+                send_push_notification(
+                    token=token.token,
+                    title="Bienvenue sur JobHub !",
+                    body="Bienvenue sur notre plateforme ! 🎉",
+                    data={
+                        "type": "new_user",
+                        "user_id": instance.id,
+                    },
+                )
+            )
 
 
 # Signal pour nouvelle offre d'emploi
@@ -46,6 +72,20 @@ def notify_job_offer(sender, instance, created, **kwargs):
                         "category": instance.category.name,
                     },
                 )
+                # Envoyer notification push
+                tokens = NotificationToken.objects.filter(user=worker.user)
+                for token in tokens:
+                    run_async(
+                        send_push_notification(
+                            token=token.token,
+                            title="Nouvelle offre d'emploi",
+                            body=f"Nouvelle offre dans votre domaine : {instance.title}",
+                            data={
+                                "type": "new_job_offer",
+                                "job_offer_id": instance.id,
+                            },
+                        )
+                    )
 
 
 # Signal pour nouvelle candidature
@@ -62,6 +102,20 @@ def notify_job_application(sender, instance, created, **kwargs):
                 "applicant_name": f"{instance.worker.user.first_name} {instance.worker.user.last_name}",
             },
         )
+        # Envoyer notification push
+        tokens = NotificationToken.objects.filter(user=instance.job_offer.client.user)
+        for token in tokens:
+            run_async(
+                send_push_notification(
+                    token=token.token,
+                    title="Nouvelle candidature",
+                    body=f"Nouvelle candidature pour : {instance.job_offer.title}",
+                    data={
+                        "type": "new_application",
+                        "job_offer_id": instance.job_offer.id,
+                    },
+                )
+            )
 
 
 # Signal pour attribution d'un travail
@@ -78,6 +132,20 @@ def notify_job_assignment(sender, instance, created, **kwargs):
                 "job_offer_id": instance.job_offer.id,
             },
         )
+        # Envoyer notification push au travailleur sélectionné
+        tokens = NotificationToken.objects.filter(user=instance.worker.user)
+        for token in tokens:
+            run_async(
+                send_push_notification(
+                    token=token.token,
+                    title="Mission attribuée",
+                    body=f"Vous avez été sélectionné pour : {instance.job_offer.title}",
+                    data={
+                        "type": "job_assigned",
+                        "job_id": instance.id,
+                    },
+                )
+            )
 
         # Notifier les autres candidats
         other_applicants = JobApplication.objects.filter(
@@ -93,6 +161,20 @@ def notify_job_assignment(sender, instance, created, **kwargs):
                     "job_offer_id": instance.job_offer.id,
                 },
             )
+            # Envoyer notification push aux autres candidats
+            tokens = NotificationToken.objects.filter(user=application.worker.user)
+            for token in tokens:
+                run_async(
+                    send_push_notification(
+                        token=token.token,
+                        title="Mission attribuée",
+                        body=f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
+                        data={
+                            "type": "job_assigned_others",
+                            "job_offer_id": instance.job_offer.id,
+                        },
+                    )
+                )
 
 
 @receiver([post_save, post_delete], sender=UserNotification)

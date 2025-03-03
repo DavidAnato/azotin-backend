@@ -9,6 +9,7 @@ from .views import (
     WorkerProfileDetailView,
     WorkerProfileListCreateView,
     WorkerProfileSearchView,
+    WorkerProfileSuggestionByJobListView,
     WorkerProfileSuggestionListView,
 )
 
@@ -47,6 +48,11 @@ urlpatterns = [
         "worker-profile-suggestion/",
         WorkerProfileSuggestionListView.as_view(),
         name="worker-profile-suggestion",
+    ),
+    path(
+        "worker-profile-suggestion-by-job/<int:job_id>/",
+        WorkerProfileSuggestionByJobListView.as_view(),
+        name="worker-profile-suggestion-by-job",
     ),
     path(
         "favorite-worker/<int:worker_profile_id>/toggle/",

@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import UserNotification
-from .serializers import NotificationSerializer
+from .models import NotificationToken, UserNotification
+from .serializers import NotificationSerializer, NotificationTokenSerializer
 
 
 class NotificationPagination(PageNumberPagination):
@@ -55,3 +55,30 @@ class MarkAllNotificationsAsReadAPIView(APIView):
             {"message": "Toutes les notifications ont été marquées comme lues"},
             status=status.HTTP_200_OK,
         )
+
+
+class NotificationTokenAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get("token")
+
+        # Vérifier si le token existe déjà
+        existing_token = NotificationToken.objects.filter(token=token).first()
+        if existing_token:
+            serializer = NotificationTokenSerializer(existing_token)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        serializer = NotificationTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class DeleteNotificationTokenAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        token = request.query_params.get("token")
+        NotificationToken.objects.filter(token=token, user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -48,11 +48,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def mark_notification_as_read(self, notification_id):
         try:
-            notification = UserNotification.objects.get(
+            UserNotification.objects.filter(
                 id=notification_id, recipient=self.user
-            )
-            notification.is_read = True
-            notification.save()
+            ).update(is_read=True)
         except UserNotification.DoesNotExist:
             pass
 

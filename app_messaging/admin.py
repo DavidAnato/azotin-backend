@@ -10,7 +10,11 @@ class MessageMediaInline(admin.TabularInline):
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ("id", "created_at")
+    list_display = (
+        "id",
+        "created_at",
+        "updated_at",
+    )
     filter_horizontal = ("participants",)
 
 

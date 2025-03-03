@@ -608,8 +608,6 @@ class UserProfileView(APIView):
             client_profile = ClientProfile.objects.get(user=user)
             data["client_profile"] = {
                 "preferred_payment_method": client_profile.preferred_payment_method,
-                "total_jobs_posted": client_profile.total_jobs_posted,
-                "job_completion_rate": client_profile.job_completion_rate,
                 "average_spent": client_profile.average_spent,
                 "loyalty_points": client_profile.loyalty_points,
                 "service_name": client_profile.service_name,

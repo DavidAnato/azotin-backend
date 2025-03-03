@@ -18,3 +18,8 @@ class UserNotification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class NotificationToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=255)

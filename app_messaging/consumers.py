@@ -1,8 +1,10 @@
+import base64
 import json
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from .models import Conversation, Message, MessageMedia
@@ -49,62 +51,93 @@ class ChatConsumer(AsyncWebsocketConsumer):
             elif action_type == "delete":
                 await self.handle_delete_message(data)
 
-        except (KeyError, json.JSONDecodeError):
-            print("\033[91mErreur de format JSON\033[0m")
+        except json.JSONDecodeError as e:
+            print(f"\033[91mErreur de format JSON: {str(e)}\033[0m")
+            print(f"\033[91mDonnées reçues: {text_data}\033[0m")
             pass
         except Exception as e:
             print(f"\033[91mErreur inattendue: {str(e)}\033[0m")
             await self.close()
 
     async def handle_new_message(self, data):
-        sender_id = self.scope["user"].id
-        message_content = data.get("message")
-        file = data.get("file")
-        job_offer_id = data.get("job_offer_id")
+        print("\033[95m=== Nouveau message reçu ===\033[0m")
+        print(f"\033[95mContenu du message: {data.get('message')}\033[0m")
+        print(f"\033[95mID de l'offre d'emploi: {data.get('job_offer_id')}\033[0m")
 
-        print(
-            f"\033[96mNouveau message de {sender_id}:\n"
-            f"Contenu: {message_content}\n"
-            f"Fichier: {file}\n"
-            f"Offre: {job_offer_id}\033[0m"
+        files_data = data.get("files", [])
+        if files_data:
+            print(f"\033[95mNombre de fichiers détectés: {len(files_data)}\033[0m")
+            for file_data in files_data:
+                print(f"\033[95mInfo fichier: {file_data}\033[0m")
+
+        # Traitement des fichiers
+        processed_files = []
+        for file_data in files_data:
+            try:
+                print("\033[94m=== Traitement du fichier multimédia ===\033[0m")
+                # Les données sont directement dans file_data
+                file_name = file_data.get("name", "file")
+                file_type = file_data.get("type", "")
+                file_content = file_data.get("content", "")
+
+                print(f"\033[94mNom du fichier: {file_name}\033[0m")
+                print(f"\033[94mType du fichier: {file_type}\033[0m")
+                print(
+                    f"\033[94mTaille du contenu base64: {len(file_content)} caractères\033[0m"
+                )
+
+                # Décodage du contenu base64
+                format, content = file_content.split(";base64,")
+                print(f"\033[94mFormat du fichier: {format}\033[0m")
+
+                binary_content = base64.b64decode(content)
+                print(
+                    f"\033[94mTaille du fichier décodé: {len(binary_content)} bytes\033[0m"
+                )
+
+                processed_file = ContentFile(binary_content, name=file_name)
+                processed_files.append(processed_file)
+                print(
+                    f"\033[92mFichier traité avec succès: {processed_file.name}\033[0m"
+                )
+
+            except Exception as e:
+                print(f"\033[91mErreur de traitement du fichier: {str(e)}\033[0m")
+                print(f"\033[91mDétails de l'erreur: {type(e).__name__}\033[0m")
+                continue
+
+        # Sauvegarde du message avec les fichiers traités
+        saved_message_data = await self.save_message(
+            content=data.get("message"),
+            sender_id=self.scope["user"].id,
+            files=processed_files,
+            job_offer_id=data.get("job_offer_id"),
         )
 
-        # Vérifier qu'au moins un type de contenu est présent
-        if not any([message_content, file, job_offer_id]):
-            print("\033[93mMessage vide ignoré\033[0m")
-            return
-
-        # Sauvegarder le message avec ses contenus
-        saved_message = await self.save_message(
-            content=message_content,
-            sender_id=sender_id,
-            file=file,
-            job_offer_id=job_offer_id,
-        )
-
-        print(f"\033[92mMessage sauvegardé avec l'ID: {saved_message.id}\033[0m")
+        print("\033[95m=== Données du message sauvegardé ===\033[0m")
+        print(f"\033[95mID du message: {saved_message_data['id']}\033[0m")
+        print(f"\033[95mContenu: {saved_message_data['content']}\033[0m")
+        print(f"\033[95mDate: {saved_message_data['timestamp']}\033[0m")
+        if saved_message_data["medias"]:
+            for media in saved_message_data["medias"]:
+                print(f"\033[95mMédia: {media['file']}\033[0m")
+                print(f"\033[95mURL du média: {media['file']}\033[0m")
+        if saved_message_data["job_offer"]:
+            print(
+                f"\033[95mOffre d'emploi associée: {saved_message_data['job_offer']}\033[0m"
+            )
 
         # Préparer les données de base du message
-        message_data = {
-            "type": "chat_message",
-            "message_id": saved_message.id,
-            "sender_id": sender_id,
-            "timestamp": saved_message.timestamp.isoformat(),
-        }
+        message_data = {"type": "chat_message", **saved_message_data}
 
-        # Ajouter les données spécifiques selon le type de contenu
-        if message_content:
-            message_data["content"] = message_content
-
-        if file and saved_message.medias.exists():
-            message_data["media_url"] = saved_message.medias.first().file.url
-
-        if job_offer_id:
-            job_offer_data = await self.get_job_offer_data(job_offer_id)
+        if data.get("job_offer_id"):
+            job_offer_data = await self.get_job_offer_data(data.get("job_offer_id"))
             message_data["job_offer"] = job_offer_data
 
-        # Envoyer au groupe de conversation
-        print(f"\033[94mEnvoi au groupe {self.room_group_name}\033[0m")
+        # Avant l'envoi au groupe
+        print("\033[95m=== Données envoyées au groupe ===\033[0m")
+        print(f"\033[95mMessage data: {json.dumps(message_data, indent=2)}\033[0m")
+
         await self.channel_layer.group_send(self.room_group_name, message_data)
 
         # Préparer les données pour la mise à jour des participants
@@ -112,19 +145,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "message_update",
             "update_type": "new_message",
             "conversation_id": self.conversation_id,
-            "message_id": saved_message.id,
-            "sender_id": sender_id,
-            "timestamp": saved_message.timestamp.isoformat(),
-            "status": "sent",
+            "message_id": saved_message_data["id"],
+            "sender_id": self.scope["user"].id,
+            "timestamp": saved_message_data["timestamp"],
+            "status": saved_message_data["status"],
         }
 
         # Ajouter les mêmes données spécifiques
-        if message_content:
-            update_data["content"] = message_content
-        if file and saved_message.medias.exists():
-            update_data["media_url"] = saved_message.medias.first().file.url
-        if job_offer_id:
+        if saved_message_data["content"]:
+            update_data["content"] = saved_message_data["content"]
+        if saved_message_data["medias"]:
+            update_data["media_urls"] = [
+                media["file"] for media in saved_message_data["medias"]
+            ]
+        if data.get("job_offer_id"):
             update_data["job_offer"] = job_offer_data
+
+        # Avant l'envoi aux participants
+        print("\033[95m=== Données envoyées aux participants ===\033[0m")
+        print(f"\033[95mUpdate data: {json.dumps(update_data, indent=2)}\033[0m")
 
         # Envoyer aux participants individuels
         conversation_participants = await self.get_conversation_participants()
@@ -253,11 +292,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     )
 
     async def chat_message(self, event):
-        # Supprimer le type du message avant l'envoi
+        print("\033[95m=== Message reçu pour diffusion ===\033[0m")
+        print(f"\033[95mÉvénement complet: {json.dumps(event, indent=2)}\033[0m")
+
         message_data = event.copy()
         message_type = message_data.pop("type")
 
-        print(f"\033[94mEnvoi du message au client - Type: {message_type}\033[0m")
+        print(f"\033[95mType de message: {message_type}\033[0m")
+        print(f"\033[95mDonnées à envoyer: {json.dumps(message_data, indent=2)}\033[0m")
+
         await self.send(text_data=json.dumps({"type": message_type, **message_data}))
 
     async def messages_read_update(self, event):
@@ -294,8 +337,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def save_message(self, content=None, sender_id=None, file=None, job_offer_id=None):
+    def save_message(self, content=None, sender_id=None, files=None, job_offer_id=None):
         try:
+            print("\033[94m=== Sauvegarde du message et des médias ===\033[0m")
             conversation = Conversation.objects.get(id=self.conversation_id)
             message = Message.objects.create(
                 conversation=conversation,
@@ -304,14 +348,51 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 job_offer_id=job_offer_id,
                 status="sent",
             )
+            print(f"\033[94mMessage créé avec l'ID: {message.id}\033[0m")
 
-            if file:
-                MessageMedia.objects.create(message=message, file=file)
+            media_data = []
+            if files:
+                for file in files:
+                    print(
+                        f"\033[94mCréation du MessageMedia pour le fichier: {file.name}\033[0m"
+                    )
+                    media = MessageMedia.objects.create(message=message, file=file)
+                    media_data.append(
+                        {
+                            "id": media.id,
+                            "file": media.file.url if media.file else None,
+                            "message": media.message.id,
+                        }
+                    )
+                    print(
+                        f"\033[92mMessageMedia créé avec succès - URL: {media.file.url}\033[0m"
+                    )
 
-            return message
+            # Créer un dictionnaire avec les données du message au format JSON-compatible
+            message_data = {
+                "id": message.id,
+                "sender": sender_id,
+                "content": content,
+                "medias": media_data,
+                "timestamp": message.timestamp.isoformat(),
+                "status": message.status,
+                "edited_at": (
+                    message.edited_at.isoformat() if message.edited_at else None
+                ),
+                "read_at": message.read_at.isoformat() if message.read_at else None,
+                "job_offer": None,  # Initialisation à None
+            }
+
+            print("\033[95m=== Données du message sauvegardé ===\033[0m")
+            print(f"\033[95mMessage data: {json.dumps(message_data, indent=2)}\033[0m")
+
+            return message_data
         except Conversation.DoesNotExist:
             print("\033[91mErreur: Conversation non trouvée\033[0m")
             raise PermissionDenied("Conversation non trouvée")
+        except Exception as e:
+            print(f"\033[91mErreur lors de la sauvegarde: {str(e)}\033[0m")
+            raise
 
     @database_sync_to_async
     def get_job_offer_data(self, job_offer_id):
@@ -321,7 +402,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             print(f"\033[94mRécupération des données de l'offre {job_offer_id}\033[0m")
             job_offer = JobOffer.objects.get(id=job_offer_id)
-            serialized_data = JobOfferSerializer(job_offer).data
+            serializer = JobOfferSerializer(job_offer)
+            # Convertir les données sérialisées en dictionnaire
+            serialized_data = dict(serializer.data)
             print("\033[92mDonnées de l'offre récupérées avec succès\033[0m")
             return serialized_data
         except JobOffer.DoesNotExist:
@@ -459,30 +542,31 @@ class MessageListConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
 
     async def message_update(self, event):
-        """
-        Cette méthode doit correspondre exactement au "type" envoyé dans group_send
-        """
+        print("\033[95m=== Mise à jour de message reçue ===\033[0m")
+        print(f"\033[95mType de mise à jour: {event['update_type']}\033[0m")
+        print(f"\033[95mDonnées complètes: {json.dumps(event, indent=2)}\033[0m")
+
         update_type = event["update_type"]
 
         if update_type == "new_message":
-            await self.send(
-                text_data=json.dumps(
-                    {
-                        "type": "new_message",
-                        "conversation_id": event["conversation_id"],
-                        "unread_count": event.get("unread_count", 0),
-                        "message": {
-                            "id": event["message_id"],
-                            "sender": event["sender_id"],
-                            "content": event.get("content"),
-                            "media_url": event.get("media_url"),
-                            "job_offer": event.get("job_offer"),
-                            "timestamp": event["timestamp"],
-                            "status": event["status"],
-                        },
-                    }
-                )
+            response_data = {
+                "type": "new_message",
+                "conversation_id": event["conversation_id"],
+                "unread_count": event.get("unread_count", 0),
+                "message": {
+                    "id": event["message_id"],
+                    "sender": event["sender_id"],
+                    "content": event.get("content"),
+                    "media_urls": event.get("media_urls", []),
+                    "job_offer": event.get("job_offer"),
+                    "timestamp": event["timestamp"],
+                    "status": event["status"],
+                },
+            }
+            print(
+                f"\033[95mRéponse envoyée: {json.dumps(response_data, indent=2)}\033[0m"
             )
+            await self.send(text_data=json.dumps(response_data))
 
         elif update_type == "messages_read":
             await self.send(

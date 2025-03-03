@@ -77,14 +77,6 @@ class ClientProfile(models.Model):
         blank=True,
     )
     preferred_payment_method = models.CharField(max_length=50, blank=True)
-    total_jobs_posted = models.IntegerField(default=0)
-    job_completion_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        blank=True,
-        null=True,
-        help_text="En pourcentage",
-    )
     average_spent = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True
     )

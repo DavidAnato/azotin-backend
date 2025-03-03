@@ -1,3 +1,4 @@
+import aiohttp
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -29,3 +30,38 @@ def create_user_notification(recipient, message, object=None):
     )
 
     return notification
+
+
+async def send_push_notification(token, title, body, data=None):
+    """
+    Envoie une notification push à un utilisateur via Expo
+
+    Args:
+        token (str): Token Expo du destinataire
+        title (str): Titre de la notification
+        body (str): Corps du message
+        data (dict, optional): Données supplémentaires à envoyer. Defaults to None.
+    """
+    if not token.startswith("ExponentPushToken["):
+        print("Token invalide")
+        return
+
+    notification_data = {
+        "to": token,
+        "title": title,
+        "body": body,
+        "sound": "default",
+    }
+
+    if data:
+        notification_data["data"] = data
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://exp.host/--/api/v2/push/send", json=[notification_data]
+            ) as response:
+                result = await response.json()
+                return result
+    except Exception as e:
+        print(f"Erreur lors de l'envoi de la notification: {e}")
