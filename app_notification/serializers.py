@@ -16,4 +16,3 @@ class NotificationTokenSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "token"]
         read_only_fields = ["user"]
         ref_name = "NotificationTokenSerializer"
-    
