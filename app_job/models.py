@@ -36,11 +36,19 @@ class JobOffer(models.Model):
     description = models.TextField()
     responsability = models.TextField()
     location = models.CharField(max_length=255)
-    price_range_min = models.DecimalField(
+    price = models.DecimalField(
         max_digits=9, decimal_places=2, help_text="Minimum price for the job."
     )
-    price_range_max = models.DecimalField(
-        max_digits=9, decimal_places=2, help_text="Maximum price for the job."
+    frequency = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=[
+            ("hour", "Hour"),
+            ("day", "Day"),
+            ("week", "Week"),
+            ("month", "Month"),
+        ],
+        help_text="Frequency of the job.",
     )
     service_date = models.DateTimeField(
         null=True, blank=True, help_text="Scheduled date and time for the service."
@@ -90,8 +98,14 @@ class JobOffer(models.Model):
         help_text="Longitude of the job location.",
     )
 
+    def save(self, *args, **kwargs):
+        # Assigner automatiquement la catégorie à partir de la sous-catégorie
+        if self.sub_category and self.sub_category.category:
+            self.category = self.sub_category.category
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Job offer by {self.client.user.first_name} at {self.location}"
+        return f"{self.title} by {self.client.user.first_name} at {self.location}"
 
 
 class JobApplication(models.Model):
@@ -104,6 +118,17 @@ class JobApplication(models.Model):
         related_name="job_applications",
     )
     proposed_price = models.DecimalField(max_digits=9, decimal_places=2)
+    frequency = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=[
+            ("hour", "Hour"),
+            ("day", "Day"),
+            ("week", "Week"),
+            ("month", "Month"),
+        ],
+        help_text="Frequency of the job.",
+    )
     cover_letter = models.TextField(
         blank=True, help_text="Optional cover letter by the worker."
     )
@@ -142,6 +167,17 @@ class Job(models.Model):
     description = models.TextField()
     location = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=9, decimal_places=2)
+    frequency = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=[
+            ("hour", "Hour"),
+            ("day", "Day"),
+            ("week", "Week"),
+            ("month", "Month"),
+        ],
+        help_text="Frequency of the job.",
+    )
     completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

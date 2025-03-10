@@ -3,8 +3,14 @@ from django.urls import path
 from .views import (
     ClientProfileDetailView,
     ClientProfileListCreateView,
+    FavoriteWorkerToggleView,
+    UpdateClientProfileView,
+    UpdateWorkerProfileView,
     WorkerProfileDetailView,
     WorkerProfileListCreateView,
+    WorkerProfileSearchView,
+    WorkerProfileSuggestionByJobListView,
+    WorkerProfileSuggestionListView,
 )
 
 urlpatterns = [
@@ -27,5 +33,35 @@ urlpatterns = [
         "client-profile/<int:pk>/",
         ClientProfileDetailView.as_view(),
         name="client-profile-detail",
+    ),
+    path(
+        "update-worker-profile/",
+        UpdateWorkerProfileView.as_view(),
+        name="update-worker-profile",
+    ),
+    path(
+        "update-client-profile/",
+        UpdateClientProfileView.as_view(),
+        name="update-client-profile",
+    ),
+    path(
+        "worker-profile-suggestion/",
+        WorkerProfileSuggestionListView.as_view(),
+        name="worker-profile-suggestion",
+    ),
+    path(
+        "worker-profile-suggestion-by-job/<int:job_id>/",
+        WorkerProfileSuggestionByJobListView.as_view(),
+        name="worker-profile-suggestion-by-job",
+    ),
+    path(
+        "favorite-worker/<int:worker_profile_id>/toggle/",
+        FavoriteWorkerToggleView.as_view(),
+        name="favorite-worker-toggle",
+    ),
+    path(
+        "worker-profile-search/",
+        WorkerProfileSearchView.as_view(),
+        name="worker-profile-search",
     ),
 ]

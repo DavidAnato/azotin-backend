@@ -47,6 +47,7 @@ class UserAdmin(BaseUserAdmin):
             "Informations personnelles",
             {
                 "fields": (
+                    "code_pin",
                     "first_name",
                     "last_name",
                     "email",
@@ -63,6 +64,10 @@ class UserAdmin(BaseUserAdmin):
         ("Mode", {"fields": ("theme_mode",)}),
         ("Statut en ligne", {"fields": ("online_status",)}),
         (
+            "Social Media",
+            {"fields": ("linkedin", "twitter", "facebook", "instagram", "website")},
+        ),
+        (
             "Compte",
             {
                 "fields": (
@@ -77,7 +82,7 @@ class UserAdmin(BaseUserAdmin):
         ("OTP", {"fields": ("otp_code", "otp_generated_at")}),
         (
             "Localisation",
-            {"fields": ("localisation_longitude", "localisation_latitude")},
+            {"fields": ("location_longitude", "location_latitude")},
         ),
         ("Google Auth", {"fields": ("google_id", "picture_url", "verified_email")}),
     )

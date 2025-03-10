@@ -39,15 +39,26 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "description",
             "responsability",
             "location",
-            "price_range_min",
-            "price_range_max",
+            "price",
+            "frequency",
             "service_date",
             "is_recurring",
-            "recurrence_frequency",
+            "type",
             "created_at",
             "updated_at",
             "is_filled",
+            "location_latitude",
+            "location_longitude",
         ]
+        extra_kwargs = {"sub_category": {"write_only": True}}
+
+    def validate_sub_category(self, value):
+        if isinstance(value, int):
+            try:
+                return SubCategory.objects.get(id=value)
+            except SubCategory.DoesNotExist:
+                raise serializers.ValidationError("Sous-catégorie invalide")
+        return value
 
 
 # JobApplication Serializer
@@ -65,6 +76,7 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             "job_offer",
             "worker",
             "proposed_price",
+            "frequency",
             "cover_letter",
             "status",
             "applied_at",
@@ -85,8 +97,8 @@ class JobSerializer(serializers.ModelSerializer):
             "client",
             "worker",
             "description",
-            "location",
             "price",
+            "frequency",
             "completed",
             "created_at",
             "updated_at",

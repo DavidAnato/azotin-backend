@@ -19,9 +19,11 @@ class WorkerProfileAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "title",
+                    "category",
                     "skills",
                     "experience",
-                    "hourly_rate",
+                    "price",
+                    "frequency",
                     "certifications",
                     "available_for_hire",
                     "total_jobs_completed",
@@ -41,8 +43,6 @@ class ClientProfileAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "preferred_payment_method",
-                    "total_jobs_posted",
-                    "job_completion_rate",
                     "average_spent",
                     "loyalty_points",
                 )
@@ -51,5 +51,9 @@ class ClientProfileAdmin(admin.ModelAdmin):
         (
             "Service",
             {"fields": ("service_name", "service_type", "service_description")},
+        ),
+        (
+            "Localisation",
+            {"fields": ("location_description",)},
         ),
     )

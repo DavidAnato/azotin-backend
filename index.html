@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test WebSocket Chat</title>
+</head>
+<body>
+    <div id="messages"></div>
+    <input type="text" id="messageInput" placeholder="Entrez votre message">
+    <button onclick="sendMessage()">Envoyer</button>
+
+    <script>
+        // Remplacez conversation_id par l'ID de votre conversation
+        const conversationId = '1';
+        const ws = new WebSocket(`ws://localhost:8000/ws/chat/${conversationId}/`);
+        
+        ws.onopen = function() {
+            console.log('WebSocket Connected');
+            appendMessage('Connecté au chat');
+        };
+        
+        ws.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            appendMessage(`Message reçu: ${data.message}`);
+        };
+        
+        ws.onclose = function() {
+            appendMessage('Déconnecté du chat');
+        };
+        
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value;
+            
+            if (message) {
+                ws.send(JSON.stringify({
+                    'message': message
+                }));
+                messageInput.value = '';
+            }
+        }
+        
+        function appendMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<p>${message}</p>`;
+        }
+    </script>
+</body>
+</html>

@@ -12,6 +12,11 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_profile.models import ClientProfile, WorkerProfile
+from app_profile.serializers import (
+    ClientProfileSerializer,
+    PreviousWorkPhotoSerializer,
+    WorkerProfileSerializer,
+)
 
 from .serializers import (
     ChangePasswordSerializer,
@@ -49,7 +54,6 @@ class UserRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-
         # Créer le profil en fonction du type de profil
         profile_type = serializer.validated_data.get("profile_type")
         if profile_type == "worker":
@@ -146,7 +150,6 @@ class EmailValidateRequestView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
-        print(email)
 
         try:
             user = User.objects.get(email=email)
@@ -234,7 +237,33 @@ class EmailActivateView(generics.GenericAPIView):
         )
 
 
-class LoginView(generics.GenericAPIView):
+class BaseLoginView(APIView):
+    """
+    Base class for login views to enrich user data with profile-specific information.
+    """
+
+    def enrich_user_data(self, user):
+        user_data = UserSerializer(user).data
+
+        try:
+            if hasattr(user, "worker_profile"):
+                worker_profile = WorkerProfileSerializer(user.worker_profile).data
+                worker_profile["previous_work_photos"] = PreviousWorkPhotoSerializer(
+                    user.worker_profile.previous_work_photos.all(), many=True
+                ).data
+                user_data["worker_profile"] = worker_profile
+            elif hasattr(user, "client_profile"):
+                client_profile = ClientProfileSerializer(user.client_profile).data
+                user_data["client_profile"] = client_profile
+        except Exception as e:
+            return Response(
+                f"Error enriching user data: {e}", status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return user_data
+
+
+class LoginView(BaseLoginView, generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -247,8 +276,8 @@ class LoginView(generics.GenericAPIView):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
-        user_serializer = UserSerializer(user)
-        user_data = user_serializer.data
+        # Enrich user data
+        user_data = self.enrich_user_data(user)
 
         return Response(
             {
@@ -260,7 +289,7 @@ class LoginView(generics.GenericAPIView):
         )
 
 
-class GoogleLoginView(generics.GenericAPIView):
+class GoogleLoginView(BaseLoginView, generics.GenericAPIView):
     serializer_class = GoogleLoginSerializer
 
     def post(self, request, *args, **kwargs):
@@ -268,18 +297,14 @@ class GoogleLoginView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         code = serializer.validated_data["code"]
 
-        client_id = settings.GOOGLE_CLIENT_ID
-        client_secret = settings.GOOGLE_CLIENT_SECRET
-        redirect_uri = settings.GOOGLE_REDIRECT_URI
-
         # Exchange the authorization code for an access token
         token_response = requests.post(
             "https://oauth2.googleapis.com/token",
             data={
                 "code": code,
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "redirect_uri": redirect_uri,
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "redirect_uri": settings.GOOGLE_REDIRECT_URI,
                 "grant_type": "authorization_code",
             },
         )
@@ -299,7 +324,6 @@ class GoogleLoginView(generics.GenericAPIView):
         )
         user_info = user_info_response.json()
 
-        # Extract relevant user information
         email = user_info.get("email")
         first_name = user_info.get("given_name")
         last_name = user_info.get("family_name")
@@ -313,7 +337,6 @@ class GoogleLoginView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check if the user already exists in the database
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
@@ -327,7 +350,6 @@ class GoogleLoginView(generics.GenericAPIView):
         )
 
         if not created:
-            # Update user information if necessary
             user.first_name = first_name
             user.last_name = last_name
             user.google_id = google_id
@@ -335,12 +357,12 @@ class GoogleLoginView(generics.GenericAPIView):
             user.verified_email = verified_email
             user.save()
 
-        # Generate JWT tokens for the user
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
 
-        user_serializer = UserSerializer(user)
-        user_data = user_serializer.data
+        # Enrich user data
+        user_data = self.enrich_user_data(user)
+
         return Response(
             {
                 "refresh": str(refresh),
@@ -349,6 +371,46 @@ class GoogleLoginView(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class PINLoginView(BaseLoginView, generics.GenericAPIView):
+    serializer_class = PINLoginSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        phone_number = serializer.validated_data.get("phone_number")
+        code_pin = serializer.validated_data.get("code_pin")
+
+        try:
+            user = User.objects.get(phone_number=phone_number)
+
+            if code_pin and user.code_pin != code_pin:
+                return Response(
+                    {"code_pin": "Invalid PIN"}, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            # Enrich user data
+            user_data = self.enrich_user_data(user)
+
+            return Response(
+                {
+                    "refresh": str(refresh),
+                    "access": access_token,
+                    "user": user_data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
 
 class ChangePasswordView(generics.UpdateAPIView):
@@ -507,7 +569,7 @@ class LogoutView(views.APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserProfileView(generics.RetrieveAPIView):
+class UserProfileView(APIView):
     """
     An endpoint for retrieving the authenticated user's profile information.
     """
@@ -515,23 +577,61 @@ class UserProfileView(generics.RetrieveAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        data = {
+            "user": UserProfileSerializer(user).data,  # Serialize user base information
+        }
+
+        # Add WorkerProfile if it exists
+        try:
+            worker_profile = WorkerProfile.objects.get(user=user)
+            data["worker_profile"] = {
+                "title": worker_profile.title,
+                "skills": worker_profile.skills,
+                "experience": worker_profile.experience,
+                "price": worker_profile.price,
+                "frequency": worker_profile.frequency,
+                "certifications": worker_profile.certifications,
+                "available_for_hire": worker_profile.available_for_hire,
+                "total_jobs_completed": worker_profile.total_jobs_completed,
+                "previous_work_photos": [
+                    photo.photo.url
+                    for photo in worker_profile.previous_work_photos.all()
+                ],
+            }
+        except WorkerProfile.DoesNotExist:
+            pass
+
+        # Add ClientProfile if it exists
+        try:
+            client_profile = ClientProfile.objects.get(user=user)
+            data["client_profile"] = {
+                "preferred_payment_method": client_profile.preferred_payment_method,
+                "average_spent": client_profile.average_spent,
+                "loyalty_points": client_profile.loyalty_points,
+                "service_name": client_profile.service_name,
+                "service_type": client_profile.service_type,
+                "service_description": client_profile.service_description,
+                "location_description": client_profile.location_description,
+                "location_latitude": client_profile.location_latitude,
+                "location_longitude": client_profile.location_longitude,
+            }
+        except ClientProfile.DoesNotExist:
+            pass
+
+        return Response(data, status=status.HTTP_200_OK)
 
 
-# Créer une vue CRUD pour le code PIN
 class CodePINCreateView(generics.CreateAPIView):
     serializer_class = CodePINSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        print(user)
         code_pin = request.data.get("code_pin")
-        print(code_pin)
         user.code_pin = code_pin
         user.save()
-        print(user.code_pin)
         return Response(
             {"detail": "Code PIN created successfully."}, status=status.HTTP_201_CREATED
         )
@@ -543,51 +643,6 @@ class CodePINUpdateView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return self.request.user
-
-
-# Authentifier (login) les utilisateurs avec leur Numéro WhatsApp et leur code PIN si aucune empreinte n'est disponible.
-class PINLoginView(generics.GenericAPIView):
-    serializer_class = PINLoginSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        phone_number = serializer.validated_data.get("phone_number")
-        code_pin = serializer.validated_data.get("code_pin")
-
-        try:
-            user = User.objects.get(phone_number=phone_number)
-
-            if code_pin and user.code_pin != code_pin:
-                print(code_pin)
-                print(user.code_pin)
-                return Response(
-                    {"code_pin": "Invalid PIN"}, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Generate JWT token
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-
-            # Utilisez le sérialiseur pour convertir l'objet utilisateur en dictionnaire
-            user_serializer = UserSerializer(user)
-            user_data = user_serializer.data
-
-            return Response(
-                {
-                    "refresh": str(refresh),
-                    "access": access_token,
-                    "user": user_data,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
 
 
 class CheckPhoneNumberView(APIView):

@@ -14,15 +14,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     Custom User model extending AbstractBaseUser and PermissionsMixin.
     """
 
-    # Category
-    category = models.ForeignKey(
-        "app_job.Category",
-        on_delete=models.CASCADE,
-        related_name="users",
-        null=True,
-        blank=True,
-    )
-
     # Personal Information
     email = models.EmailField(
         "Email Address", unique=True, max_length=255, blank=True, null=True
@@ -68,17 +59,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     online_status = models.BooleanField(default=False)
 
     # Location fields
-    localisation_longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+    location_longitude = models.DecimalField(
+        max_digits=20, decimal_places=10, blank=True, null=True
     )
-    localisation_latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+    location_latitude = models.DecimalField(
+        max_digits=20, decimal_places=10, blank=True, null=True
     )
 
     # Google authentication fields
     google_id = models.CharField("Google ID", max_length=255, blank=True, null=True)
     picture_url = models.URLField("Picture URL", blank=True, null=True)
     verified_email = models.BooleanField("Verified Email", default=False)
+
+    # Social Media
+    linkedin = models.URLField("Linkedin URL", blank=True, null=True)
+    twitter = models.URLField("Twitter URL", blank=True, null=True)
+    facebook = models.URLField("Facebook URL", blank=True, null=True)
+    instagram = models.URLField("Instagram URL", blank=True, null=True)
+    website = models.URLField("Website URL", blank=True, null=True)
 
     # OTP fields
     otp_code = models.CharField("OTP Code", max_length=5, null=True, blank=True)

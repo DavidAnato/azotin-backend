@@ -134,3 +134,9 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Media files
+media/
+
+# Django migrations
+migrations/

@@ -70,8 +70,8 @@ class JobApplicationViewSet(BaseViewSet):
 
 class JobViewSet(BaseViewSet):
     serializer_class = JobSerializer
-    search_fields = ["title", "description", "location"]
-    ordering_fields = ["title", "created_at", "location"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["title", "created_at"]
 
     def get_queryset(self):
         queryset = Job.objects.all()
