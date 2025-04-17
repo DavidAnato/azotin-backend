@@ -7,7 +7,7 @@ set -e
 python manage.py flush --noinput
 
 # make migrations
-python manage.py makemigrations
+python manage.py makemigrations 
 
 echo "Running database migrations..."
 python manage.py migrate --noinput

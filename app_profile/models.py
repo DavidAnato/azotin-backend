@@ -6,7 +6,9 @@ User = get_user_model()
 
 class WorkerProfile(models.Model):
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="worker_profile"
+        User, on_delete=models.CASCADE, related_name="worker_profile",
+        null=True,
+        blank=True,
     )
     title = models.ForeignKey(
         "app_job.SubCategory", on_delete=models.CASCADE, blank=True, null=True
@@ -33,6 +35,7 @@ class WorkerProfile(models.Model):
             ("month", "Month"),
         ],
         help_text="Frequency of the job.",
+        default="hour",
     )
     certifications = models.TextField(max_length=500, blank=True)
     available_for_hire = models.BooleanField(default=True)
@@ -57,7 +60,9 @@ class WorkerProfile(models.Model):
 
 class PreviousWorkPhoto(models.Model):
     worker_profile = models.ForeignKey(
-        WorkerProfile, on_delete=models.CASCADE, related_name="previous_work_photos"
+        WorkerProfile, on_delete=models.CASCADE, related_name="previous_work_photos",
+        null=True,
+        blank=True,
     )
     photo = models.ImageField(upload_to="worker_photos/", blank=True, null=True)
 
@@ -67,7 +72,9 @@ class PreviousWorkPhoto(models.Model):
 
 class ClientProfile(models.Model):
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="client_profile"
+        User, on_delete=models.CASCADE, related_name="client_profile",
+        null=True,
+        blank=True,
     )
     category = models.ForeignKey(
         "app_job.Category",
@@ -98,10 +105,14 @@ class ClientProfile(models.Model):
 
 class FavoriteWorker(models.Model):
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="favorite_workers"
+        User, on_delete=models.CASCADE, related_name="favorite_workers",
+        null=True,
+        blank=True,
     )
     worker_profile = models.ForeignKey(
-        WorkerProfile, on_delete=models.CASCADE, related_name="favorite_workers"
+        WorkerProfile, on_delete=models.CASCADE, related_name="favorite_workers",
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

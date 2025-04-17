@@ -16,7 +16,9 @@ class SubCategory(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
     category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name="subcategories"
+        Category, on_delete=models.CASCADE, related_name="subcategories",
+        null=True,
+        blank=True,
     )
 
     def __str__(self):
@@ -25,12 +27,19 @@ class SubCategory(models.Model):
 
 class JobOffer(models.Model):
     category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name="job_offers"
+        Category, on_delete=models.CASCADE, related_name="job_offers",
+        null=True,
+        blank=True,
     )
     sub_category = models.ForeignKey(
-        SubCategory, on_delete=models.CASCADE, related_name="job_offers"
+        SubCategory, on_delete=models.CASCADE, related_name="job_offers",
+        null=True,
+        blank=True,
     )
-    client = models.ForeignKey("app_profile.ClientProfile", on_delete=models.CASCADE)
+    client = models.ForeignKey("app_profile.ClientProfile", on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=255)
     image = models.ImageField(upload_to="job_offers/", null=True, blank=True)
     description = models.TextField()
@@ -110,12 +119,16 @@ class JobOffer(models.Model):
 
 class JobApplication(models.Model):
     job_offer = models.ForeignKey(
-        JobOffer, on_delete=models.CASCADE, related_name="applications"
+        JobOffer, on_delete=models.CASCADE, related_name="applications",
+        null=True,
+        
     )
     worker = models.ForeignKey(
         "app_profile.WorkerProfile",
         on_delete=models.CASCADE,
         related_name="job_applications",
+        null=True,
+        
     )
     proposed_price = models.DecimalField(max_digits=9, decimal_places=2)
     frequency = models.CharField(
@@ -167,6 +180,8 @@ class Job(models.Model):
         "app_profile.WorkerProfile",
         on_delete=models.CASCADE,
         related_name="assigned_jobs",
+        null=True,
+        
     )
     description = models.TextField()
     location = models.CharField(max_length=255)
@@ -192,10 +207,13 @@ class Job(models.Model):
 
 class JobFavorite(models.Model):
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="job_favorites"
+        User, on_delete=models.CASCADE, related_name="job_favorites",
+        null=True,
     )
     job_offer = models.ForeignKey(
-        JobOffer, on_delete=models.CASCADE, related_name="job_favorites"
+        JobOffer, on_delete=models.CASCADE, related_name="job_favorites",
+        null=True,
+        
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
