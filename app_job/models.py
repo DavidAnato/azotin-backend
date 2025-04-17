@@ -153,6 +153,8 @@ class Job(models.Model):
         on_delete=models.CASCADE,
         related_name="job",
         help_text="The related job offer.",
+        null=True,
+        
     )
     client = models.ForeignKey(
         "app_profile.ClientProfile",
