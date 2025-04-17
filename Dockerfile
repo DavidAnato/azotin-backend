@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install gunicon
+RUN pip install gunicorn
+
 # Copy the Django application
 COPY . /app/
 # Copy the entrypoint script
