@@ -158,6 +158,8 @@ class Job(models.Model):
         "app_profile.ClientProfile",
         on_delete=models.CASCADE,
         related_name="assigned_jobs",
+        null=True,
+        blank=True,
     )
     worker = models.ForeignKey(
         "app_profile.WorkerProfile",

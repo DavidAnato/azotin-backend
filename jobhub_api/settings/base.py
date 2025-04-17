@@ -235,3 +235,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 #         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
 #     },
 # }
+
+OURVOICE_API_KEY = config("OURVOICE_API_KEY", default="")
+OURVOICE_APP_ID = config("OURVOICE_APP_ID", default="")
