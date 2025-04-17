@@ -78,10 +78,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     instagram = models.URLField("Instagram URL", blank=True, null=True)
     website = models.URLField("Website URL", blank=True, null=True)
 
-    # OTP fields
-    otp_code = models.CharField("OTP Code", max_length=5, null=True, blank=True)
-    otp_generated_at = models.DateTimeField("OTP Generated At", null=True, blank=True)
-
     USERNAME_FIELD = "phone_number"
     REQUIRED_FIELDS = ["email", "first_name"]
 

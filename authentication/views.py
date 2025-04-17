@@ -41,6 +41,7 @@ from .utils import (
     send_password_reset_email,
     send_whatsapp_message,
 )
+from .otp_service import send_otp, verify_otp
 
 User = get_user_model()
 
@@ -87,16 +88,30 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone_number = serializer.validated_data["phone_number"]
-        user = User.objects.get(phone_number=phone_number)
-        otp_code = get_random_string(length=5, allowed_chars="1234567890")
-        user.otp_code = otp_code
-        user.otp_generated_at = timezone.now()
-        user.save()
-        send_whatsapp_message(phone_number, otp_code)
-        return Response(
-            {"message": "Phone number validated successfully."},
-            status=status.HTTP_200_OK,
-        )
+        
+        try:
+            user = User.objects.get(phone_number=phone_number)
+            # Envoyer l'OTP via GetOurVoice
+            response = send_otp(
+                phone_number=phone_number,
+                api_key=settings.OURVOICE_API_KEY,
+                app_id=settings.OURVOICE_APP_ID
+            )
+            
+            return Response(
+                {"message": "Code OTP envoyé avec succès."},
+                status=status.HTTP_200_OK,
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Utilisateur non trouvé avec ce numéro."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de l'envoi du code OTP: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class PhoneNumberValidateConfirmView(generics.CreateAPIView):
@@ -104,41 +119,45 @@ class PhoneNumberValidateConfirmView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
-        # Initialiser le sérialiseur avec les données de la requête
         serializer = self.get_serializer(data=request.data)
-
-        # Vérifier que les données sont valides
         serializer.is_valid(raise_exception=True)
-
-        # Extraire le numéro de téléphone et le code OTP
+        
         phone_number = serializer.validated_data["phone_number"]
         otp_code = serializer.validated_data["otp_code"]
 
         try:
-            # Vérifier si un utilisateur existe avec ce numéro de téléphone
             user = User.objects.get(phone_number=phone_number)
-
-            # Comparer l'OTP envoyé avec celui de l'utilisateur
-            if user.otp_code != otp_code:
+            
+            # Vérifier l'OTP via GetOurVoice
+            response = verify_otp(
+                phone_number=phone_number,
+                code=otp_code,
+                api_key=settings.OURVOICE_API_KEY,
+                app_id=settings.OURVOICE_APP_ID
+            )
+            
+            if response.get("valid"):
+                user.is_active = True
+                user.save()
                 return Response(
-                    {"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST
+                    {"message": "Numéro de téléphone validé avec succès."},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    {"error": "Code OTP invalide."},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Activer l'utilisateur si l'OTP est valide
-            user.is_active = True
-            user.save()
-
-            # Retourner une réponse réussie une fois l'utilisateur activé
-            return Response(
-                {"message": "Phone number validated successfully."},
-                status=status.HTTP_200_OK,
-            )
-
         except User.DoesNotExist:
-            # Retourner une erreur si aucun utilisateur n'est trouvé avec ce numéro de téléphone
             return Response(
-                {"error": "User with this phone number not found."},
-                status=status.HTTP_404_NOT_FOUND,
+                {"error": "Utilisateur non trouvé avec ce numéro."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Erreur lors de la vérification du code OTP: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
