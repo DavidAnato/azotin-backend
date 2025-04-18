@@ -34,6 +34,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Security Information
     code_pin = models.CharField(max_length=4, null=True, blank=True)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_generated_at = models.DateTimeField(null=True, blank=True)
 
     # Account Information
     is_active = models.BooleanField(default=True)

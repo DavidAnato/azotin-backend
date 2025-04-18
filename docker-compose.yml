@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - jobhub_network
+
+volumes:
+  redis_data:
+
+networks:
+  jobhub_network:
+    driver: bridge 
