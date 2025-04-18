@@ -236,5 +236,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 #     },
 # }
 
-OURVOICE_API_KEY = config("OURVOICE_API_KEY", default="")
-OURVOICE_APP_ID = config("OURVOICE_APP_ID", default="")
+# GetOurVoice Configuration
+OURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
+OURVOICE_APP_ID = config("GETOURVOICE_APP_ID", default="")

@@ -1,9 +1,9 @@
-from typing import Dict
+from typing import Dict, Tuple
 
 import requests
 
 
-def send_otp(phone_number: str, api_key: str, app_id: str) -> Dict:
+def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
     """
     Envoie un code OTP au numéro de téléphone spécifié.
 
@@ -13,8 +13,18 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Dict:
         app_id (str): L'ID de l'application
 
     Returns:
-        Dict: La réponse de l'API contenant les détails de l'envoi
+        Tuple[bool, Dict]: (succès, réponse)
+            - succès: True si l'envoi a réussi, False sinon
+            - réponse: La réponse de l'API ou le message d'erreur
     """
+    # Vérification des paramètres requis
+    if not phone_number:
+        return False, {"error": "Le numéro de téléphone est requis"}
+    if not api_key:
+        return False, {"error": "La clé API GetOurVoice est requise"}
+    if not app_id:
+        return False, {"error": "L'ID de l'application GetOurVoice est requis"}
+
     base_url = "https://api.getourvoice.com"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -26,29 +36,26 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Dict:
     payload = {"send_to": phone_number, "app_id": app_id}
 
     try:
-        print(f"Tentative d'envoi à {phone_number}...")
         response = requests.post(endpoint, headers=headers, json=payload)
-
+        
         if response.status_code == 405:
-            print("Erreur : Méthode non autorisée. Vérifiez l'URL de l'API.")
+            return False, {"error": "Méthode non autorisée. Vérifiez l'URL de l'API."}
         elif response.status_code == 401:
-            print("Erreur : Non autorisé. Vérifiez votre clé API.")
+            return False, {"error": "Non autorisé. Vérifiez votre clé API."}
         elif response.status_code == 422:
-            print(
-                "Erreur : Données invalides. Vérifiez le format du numéro de téléphone."
-            )
-        else:
-            response.raise_for_status()
+            return False, {"error": "Données invalides. Vérifiez le format du numéro de téléphone."}
+        
+        response.raise_for_status()
+        return True, response.json()
 
-        return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Erreur lors de l'envoi : {e}")
+        error_message = str(e)
         if hasattr(e, "response") and hasattr(e.response, "text"):
-            print(f"Réponse du serveur : {e.response.text}")
-        raise
+            error_message = f"{error_message} - {e.response.text}"
+        return False, {"error": f"Erreur lors de l'envoi : {error_message}"}
 
 
-def verify_otp(phone_number: str, code: str, api_key: str, app_id: str) -> Dict:
+def verify_otp(phone_number: str, code: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
     """
     Vérifie le code OTP saisi par l'utilisateur.
 
@@ -59,8 +66,13 @@ def verify_otp(phone_number: str, code: str, api_key: str, app_id: str) -> Dict:
         app_id (str): L'ID de l'application
 
     Returns:
-        Dict: La réponse de l'API contenant le résultat de la vérification
+        Tuple[bool, Dict]: (succès, réponse)
+            - succès: True si la vérification a réussi, False sinon
+            - réponse: La réponse de l'API ou le message d'erreur
     """
+    if not api_key or not app_id:
+        return False, {"error": "API key et APP ID sont requis"}
+
     base_url = "https://api.getourvoice.com"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -72,23 +84,29 @@ def verify_otp(phone_number: str, code: str, api_key: str, app_id: str) -> Dict:
     payload = {"code": code, "send_to": phone_number, "app_id": app_id}
 
     try:
-        print(f"Tentative de vérification pour {phone_number}...")
         response = requests.post(endpoint, headers=headers, json=payload)
-
+        
         if response.status_code == 405:
-            print("Erreur : Méthode non autorisée. Vérifiez l'URL de l'API.")
+            return False, {"error": "Méthode non autorisée. Vérifiez l'URL de l'API."}
         elif response.status_code == 401:
-            print("Erreur : Non autorisé. Vérifiez votre clé API.")
+            return False, {"error": "Non autorisé. Vérifiez votre clé API."}
         elif response.status_code == 422:
-            print(
-                "Erreur : Données invalides. Vérifiez le format du numéro de téléphone ou du code."
-            )
-        else:
-            response.raise_for_status()
+            return False, {"error": "Données invalides. Vérifiez le format du code ou du numéro."}
+        
+        response.raise_for_status()
+        response_data = response.json()
 
-        return response.json()
+        # Vérifier le succès et la validité selon la réponse de GetOurVoice
+        is_valid = (
+            response_data.get("success", False) and 
+            response_data.get("valid", False) and 
+            response_data.get("data", {}).get("status") == "verified"
+        )
+
+        return is_valid, response_data
+
     except requests.exceptions.RequestException as e:
-        print(f"Erreur lors de la vérification : {e}")
+        error_message = str(e)
         if hasattr(e, "response") and hasattr(e.response, "text"):
-            print(f"Réponse du serveur : {e.response.text}")
-        raise
+            error_message = f"{error_message} - {e.response.text}"
+        return False, {"error": f"Erreur lors de la vérification : {error_message}"}

@@ -12,12 +12,14 @@ class Command(BaseCommand):
             email = "admin@azotin.com"
             phone_number = "1234567890"
             password = "adminpassword"
+            code_pin = "0000"
 
             User.objects.create_superuser(
                 first_name=first_name,
                 email=email,
                 phone_number=phone_number,
                 password=password,
+                code_pin=code_pin,
             )
             self.stdout.write(self.style.SUCCESS("Superuser created successfully."))
         else:

@@ -34,6 +34,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Security Information
     code_pin = models.CharField(max_length=4, null=True, blank=True)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_generated_at = models.DateTimeField(null=True, blank=True)
 
     # Account Information
     is_active = models.BooleanField(default=True)
@@ -140,7 +142,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
-
 
 class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
