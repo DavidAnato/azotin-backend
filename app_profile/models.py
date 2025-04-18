@@ -6,7 +6,9 @@ User = get_user_model()
 
 class WorkerProfile(models.Model):
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="worker_profile",
+        User,
+        on_delete=models.CASCADE,
+        related_name="worker_profile",
         null=True,
         blank=True,
     )
@@ -60,7 +62,9 @@ class WorkerProfile(models.Model):
 
 class PreviousWorkPhoto(models.Model):
     worker_profile = models.ForeignKey(
-        WorkerProfile, on_delete=models.CASCADE, related_name="previous_work_photos",
+        WorkerProfile,
+        on_delete=models.CASCADE,
+        related_name="previous_work_photos",
         null=True,
         blank=True,
     )
@@ -72,7 +76,9 @@ class PreviousWorkPhoto(models.Model):
 
 class ClientProfile(models.Model):
     user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="client_profile",
+        User,
+        on_delete=models.CASCADE,
+        related_name="client_profile",
         null=True,
         blank=True,
     )
@@ -105,12 +111,16 @@ class ClientProfile(models.Model):
 
 class FavoriteWorker(models.Model):
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="favorite_workers",
+        User,
+        on_delete=models.CASCADE,
+        related_name="favorite_workers",
         null=True,
         blank=True,
     )
     worker_profile = models.ForeignKey(
-        WorkerProfile, on_delete=models.CASCADE, related_name="favorite_workers",
+        WorkerProfile,
+        on_delete=models.CASCADE,
+        related_name="favorite_workers",
         null=True,
         blank=True,
     )
