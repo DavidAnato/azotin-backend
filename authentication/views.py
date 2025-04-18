@@ -48,13 +48,13 @@ User = get_user_model()
 
 class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
-    serializer_class = RegisterSerializer 
+    serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         try:
             # Vérifier que les clés API sont configurées
             if not settings.OURVOICE_API_KEY or not settings.OURVOICE_APP_ID:
@@ -72,10 +72,14 @@ class UserRegisterView(generics.CreateAPIView):
                     api_key=settings.OURVOICE_API_KEY,
                     app_id=settings.OURVOICE_APP_ID,
                 )
-                
+
                 if not success:
                     return Response(
-                        {"error": response.get("error", "Échec de l'envoi du code OTP.")},
+                        {
+                            "error": response.get(
+                                "error", "Échec de l'envoi du code OTP."
+                            )
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -83,7 +87,7 @@ class UserRegisterView(generics.CreateAPIView):
                 user = serializer.save()
                 user.is_active = False
                 user.save()
-                
+
                 # Créer le profil en fonction du type de profil
                 profile_type = serializer.validated_data.get("profile_type")
                 if profile_type == "worker":
@@ -109,6 +113,7 @@ class UserRegisterView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+
 class PhoneNumberValidateRequestView(generics.CreateAPIView):
     serializer_class = PhoneNumberValidateRequestSerializer
     permission_classes = [permissions.AllowAny]
@@ -120,19 +125,19 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
 
         try:
             # Vérifier si l'utilisateur existe
-            user = User.objects.get(phone_number=phone_number)
-            
+            User.objects.get(phone_number=phone_number)
+
             # Envoyer l'OTP via GetOurVoice
-            response = send_otp(
+            success, response = send_otp(
                 phone_number=phone_number,
                 api_key=settings.OURVOICE_API_KEY,
                 app_id=settings.OURVOICE_APP_ID,
             )
-            
+
             # Vérifier si l'envoi a réussi
-            if not response.get("data"):
+            if not success:
                 return Response(
-                    {"error": "Échec de l'envoi du code OTP."},
+                    {"error": response.get("error", "Échec de l'envoi du code OTP.")},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -173,9 +178,11 @@ class PhoneNumberValidateConfirmView(generics.CreateAPIView):
                 api_key=settings.OURVOICE_API_KEY,
                 app_id=settings.OURVOICE_APP_ID,
             )
-            
+
             if not success:
-                error_message = response.get("error") or response.get("message", "Code OTP invalide.")
+                error_message = response.get("error") or response.get(
+                    "message", "Code OTP invalide."
+                )
                 return Response(
                     {"error": error_message},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -186,7 +193,7 @@ class PhoneNumberValidateConfirmView(generics.CreateAPIView):
             return Response(
                 {
                     "message": "Numéro de téléphone validé avec succès.",
-                    "details": response.get("message", "")
+                    "details": response.get("message", ""),
                 },
                 status=status.HTTP_200_OK,
             )

@@ -37,14 +37,16 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
 
     try:
         response = requests.post(endpoint, headers=headers, json=payload)
-        
+
         if response.status_code == 405:
             return False, {"error": "Méthode non autorisée. Vérifiez l'URL de l'API."}
         elif response.status_code == 401:
             return False, {"error": "Non autorisé. Vérifiez votre clé API."}
         elif response.status_code == 422:
-            return False, {"error": "Données invalides. Vérifiez le format du numéro de téléphone."}
-        
+            return False, {
+                "error": "Données invalides. Vérifiez le format du numéro de téléphone."
+            }
+
         response.raise_for_status()
         return True, response.json()
 
@@ -55,7 +57,9 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
         return False, {"error": f"Erreur lors de l'envoi : {error_message}"}
 
 
-def verify_otp(phone_number: str, code: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
+def verify_otp(
+    phone_number: str, code: str, api_key: str, app_id: str
+) -> Tuple[bool, Dict]:
     """
     Vérifie le code OTP saisi par l'utilisateur.
 
@@ -85,22 +89,24 @@ def verify_otp(phone_number: str, code: str, api_key: str, app_id: str) -> Tuple
 
     try:
         response = requests.post(endpoint, headers=headers, json=payload)
-        
+
         if response.status_code == 405:
             return False, {"error": "Méthode non autorisée. Vérifiez l'URL de l'API."}
         elif response.status_code == 401:
             return False, {"error": "Non autorisé. Vérifiez votre clé API."}
         elif response.status_code == 422:
-            return False, {"error": "Données invalides. Vérifiez le format du code ou du numéro."}
-        
+            return False, {
+                "error": "Données invalides. Vérifiez le format du code ou du numéro."
+            }
+
         response.raise_for_status()
         response_data = response.json()
 
         # Vérifier le succès et la validité selon la réponse de GetOurVoice
         is_valid = (
-            response_data.get("success", False) and 
-            response_data.get("valid", False) and 
-            response_data.get("data", {}).get("status") == "verified"
+            response_data.get("success", False)
+            and response_data.get("valid", False)
+            and response_data.get("data", {}).get("status") == "verified"
         )
 
         return is_valid, response_data
