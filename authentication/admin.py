@@ -79,7 +79,6 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
-        ("OTP", {"fields": ("otp_code", "otp_generated_at")}),
         (
             "Localisation",
             {"fields": ("location_longitude", "location_latitude")},
