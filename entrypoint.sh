@@ -3,11 +3,11 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# delete all jobs
-python manage.py shell -c "from app_job.models import Job; Job.objects.all().delete()"
+# reset database
+python manage.py flush --noinput
 
 # make migrations
-python manage.py makemigrations
+python manage.py makemigrations 
 
 echo "Running database migrations..."
 python manage.py migrate --noinput
