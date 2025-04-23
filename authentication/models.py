@@ -151,3 +151,43 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review by {self.user.first_name} {self.user.last_name}"
+
+
+class UserSettings(models.Model):
+    """
+    Modèle pour gérer les paramètres de sécurité et de notification des utilisateurs
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+    
+    # Paramètres de sécurité
+    use_biometric = models.BooleanField(default=False, help_text="Activer l'authentification biométrique")
+    use_face_id = models.BooleanField(default=False, help_text="Activer Face ID")
+    use_pin = models.BooleanField(default=False, help_text="Activer le code PIN")
+    
+    # Paramètres de notification
+    notification_email = models.BooleanField(default=True, help_text="Activer les notifications par email")
+    notification_sms = models.BooleanField(default=True, help_text="Activer les notifications par SMS")
+    notification_push = models.BooleanField(default=True, help_text="Activer les notifications push")
+    
+    
+    # Paramètres de confidentialité
+    profile_visibility = models.CharField(
+        max_length=20,
+        choices=[
+            ('public', 'Public'),
+            ('private', 'Privé'),
+            ('connections', 'Connexions uniquement')
+        ],
+        default='public',
+        help_text="Visibilité du profil"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Paramètres utilisateur"
+        verbose_name_plural = "Paramètres utilisateurs"
+
+    def __str__(self):
+        return f"Paramètres de {self.user.first_name} {self.user.last_name}"
