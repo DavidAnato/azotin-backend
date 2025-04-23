@@ -105,7 +105,13 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(UserSettings)
 class UserSettingsAdmin(admin.ModelAdmin):
-    list_display = ('user', 'use_biometric', 'use_face_id', 'use_pin', 'profile_visibility')
-    list_filter = ('use_biometric', 'use_face_id', 'use_pin', 'profile_visibility')
-    search_fields = ('user__first_name', 'user__last_name', 'user__email')
-    raw_id_fields = ('user',)
+    list_display = (
+        "user",
+        "use_biometric",
+        "use_face_id",
+        "use_pin",
+        "profile_visibility",
+    )
+    list_filter = ("use_biometric", "use_face_id", "use_pin", "profile_visibility")
+    search_fields = ("user__first_name", "user__last_name", "user__email")
+    raw_id_fields = ("user",)

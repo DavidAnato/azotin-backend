@@ -240,12 +240,12 @@ class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSettings
         fields = [
-            'use_biometric',
-            'use_face_id',
-            'use_pin',
-            'notification_email',
-            'notification_sms',
-            'notification_push',
-            'profile_visibility',
+            "use_biometric",
+            "use_face_id",
+            "use_pin",
+            "notification_email",
+            "notification_sms",
+            "notification_push",
+            "profile_visibility",
         ]
-        read_only_fields = ['user']
+        read_only_fields = ["user"]

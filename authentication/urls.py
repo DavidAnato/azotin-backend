@@ -61,5 +61,5 @@ urlpatterns = [
     path(
         "check-phone-number/", CheckPhoneNumberView.as_view(), name="check-phone-number"
     ),
-    path('settings/', user_settings_view, name='user-settings'),
+    path("settings/", user_settings_view, name="user-settings"),
 ]

@@ -7,11 +7,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import generics, permissions, status, views
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 
 from app_profile.models import ClientProfile, WorkerProfile
 from app_profile.serializers import (
@@ -727,7 +727,7 @@ class CheckPhoneNumberView(APIView):
         return Response({"exists": user}, status=status.HTTP_200_OK)
 
 
-@api_view(['GET', 'PUT'])
+@api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def user_settings_view(request):
     """
@@ -738,11 +738,11 @@ def user_settings_view(request):
     except UserSettings.DoesNotExist:
         settings = UserSettings.objects.create(user=request.user)
 
-    if request.method == 'GET':
+    if request.method == "GET":
         serializer = UserSettingsSerializer(settings)
         return Response(serializer.data)
 
-    elif request.method == 'PUT':
+    elif request.method == "PUT":
         serializer = UserSettingsSerializer(settings, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
