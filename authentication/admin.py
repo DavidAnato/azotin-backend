@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 
-from .models import Review, User
+from .models import Review, User, UserSettings
 
 # Modifier le nom affiché dans l'en-tête de l'interface d'administration
 admin.site.site_header = "Administration de Connecte Me"
@@ -101,3 +101,17 @@ class UserAdmin(BaseUserAdmin):
             return format_html("(Aucune image)")
 
     profile_picture_image.short_description = "Photo de profil"
+
+
+@admin.register(UserSettings)
+class UserSettingsAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "use_biometric",
+        "use_face_id",
+        "use_pin",
+        "profile_visibility",
+    )
+    list_filter = ("use_biometric", "use_face_id", "use_pin", "profile_visibility")
+    search_fields = ("user__first_name", "user__last_name", "user__email")
+    raw_id_fields = ("user",)

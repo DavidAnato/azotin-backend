@@ -7,6 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import generics, permissions, status, views
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -17,6 +19,7 @@ from app_profile.serializers import (
     PreviousWorkPhotoSerializer,
     WorkerProfileSerializer,
 )
+from authentication.models import UserSettings
 
 from .otp_service import send_otp, verify_otp
 from .serializers import (
@@ -34,6 +37,7 @@ from .serializers import (
     RegisterSerializer,
     UserProfileSerializer,
     UserSerializer,
+    UserSettingsSerializer,
 )
 
 # Local imports
@@ -721,3 +725,26 @@ class CheckPhoneNumberView(APIView):
         phone_number = request.data.get("phone_number")
         user = User.objects.filter(phone_number=phone_number).exists()
         return Response({"exists": user}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def user_settings_view(request):
+    """
+    Vue pour récupérer et mettre à jour les paramètres utilisateur
+    """
+    try:
+        settings = UserSettings.objects.get(user=request.user)
+    except UserSettings.DoesNotExist:
+        settings = UserSettings.objects.create(user=request.user)
+
+    if request.method == "GET":
+        serializer = UserSettingsSerializer(settings)
+        return Response(serializer.data)
+
+    elif request.method == "PUT":
+        serializer = UserSettingsSerializer(settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

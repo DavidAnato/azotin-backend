@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from authentication.models import Review
+from authentication.models import Review, UserSettings
 
 User = get_user_model()
 
@@ -234,3 +234,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = "__all__"
+
+
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSettings
+        fields = [
+            "use_biometric",
+            "use_face_id",
+            "use_pin",
+            "notification_email",
+            "notification_sms",
+            "notification_push",
+            "profile_visibility",
+        ]
+        read_only_fields = ["user"]

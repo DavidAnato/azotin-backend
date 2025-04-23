@@ -18,6 +18,7 @@ from .views import (
     SetPasswordView,
     UserProfileView,
     UserRegisterView,
+    user_settings_view,
 )
 
 urlpatterns = [
@@ -60,4 +61,5 @@ urlpatterns = [
     path(
         "check-phone-number/", CheckPhoneNumberView.as_view(), name="check-phone-number"
     ),
+    path("settings/", user_settings_view, name="user-settings"),
 ]
