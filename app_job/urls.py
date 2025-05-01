@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AskToMarkAsCompletedView,
     CategoryAndSubCategoryListView,
+    CheckPaidServiceView,
     ClientJobStatisticsView,
     HandleJobFavoriteView,
     JobApplicationDetailView,
@@ -79,5 +80,10 @@ urlpatterns = [
         "mark-completed/<int:job_offer_id>/",
         MarkAsCompletedView.as_view(),
         name="mark-job-completed",
+    ),
+    path(
+        "check-paid-service/",
+        CheckPaidServiceView.as_view(),
+        name="check-paid-service",
     ),
 ]

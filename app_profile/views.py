@@ -9,7 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from app_job.models import JobOffer
-from authentication.serializers import UserSerializer
+from authentication.models import UserSettings
+from authentication.serializers import UserSerializer, UserSettingsSerializer
 
 from .models import ClientProfile, FavoriteWorker, WorkerProfile
 from .serializers import (
@@ -155,7 +156,11 @@ class UpdateWorkerProfileView(APIView):
 
     def enrich_user_data(self, user):
         user_data = UserSerializer(user).data
-
+        try:
+            settings = UserSettings.objects.get(user=user)
+            user_data["settings"] = UserSettingsSerializer(settings).data
+        except UserSettings.DoesNotExist:
+            user_data["settings"] = None
         try:
             if hasattr(user, "worker_profile"):
                 worker_profile = WorkerProfileSerializer(user.worker_profile).data
@@ -209,7 +214,11 @@ class UpdateClientProfileView(APIView):
 
     def enrich_user_data(self, user):
         user_data = UserSerializer(user).data
-
+        try:
+            settings = UserSettings.objects.get(user=user)
+            user_data["settings"] = UserSettingsSerializer(settings).data
+        except UserSettings.DoesNotExist:
+            user_data["settings"] = None
         try:
             if hasattr(user, "worker_profile"):
                 worker_profile = WorkerProfileSerializer(user.worker_profile).data

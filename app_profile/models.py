@@ -26,7 +26,7 @@ class WorkerProfile(models.Model):
 
     skills = models.TextField(max_length=500, blank=True)
     experience = models.IntegerField(default=0, help_text="Years of experience")
-    price = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    price = models.DecimalField(max_digits=6, decimal_places=0, blank=True, null=True)
     frequency = models.CharField(
         max_length=50,
         blank=True,
@@ -91,7 +91,7 @@ class ClientProfile(models.Model):
     )
     preferred_payment_method = models.CharField(max_length=50, blank=True)
     average_spent = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True
+        max_digits=10, decimal_places=0, blank=True, null=True
     )
     loyalty_points = models.IntegerField(default=0)
     SERVICE_TYPE_CHOICES = [

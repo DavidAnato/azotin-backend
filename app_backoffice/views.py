@@ -13,8 +13,8 @@ from app_profile.models import ClientProfile, WorkerProfile
 from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 from authentication.serializers import UserSerializer
 
-from .models import Notification
-from .serializers import JobStatisticsSerializer, NotificationSerializer
+from .models import BackofficeNotification
+from .serializers import BackofficeNotificationSerializer, JobStatisticsSerializer
 
 User = get_user_model()
 
@@ -84,11 +84,11 @@ class JobViewSet(BaseViewSet):
 # Notifications
 class UnreadNotificationCountView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        unread_count = Notification.objects.exclude(
+        unread_count = BackofficeNotification.objects.exclude(
             users_read__id=user.id
         ).count()  # Corrected
         return Response({"unread_count": unread_count})
@@ -96,22 +96,24 @@ class UnreadNotificationCountView(generics.GenericAPIView):
 
 class IsUnreadNotificationView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def get(self, request, *args, **kwargs):
         user = request.user
         user_notification_unread = (
-            Notification.objects.filter(notification_type="user_notification")
+            BackofficeNotification.objects.filter(notification_type="user_notification")
             .exclude(users_read__id=user.id)
             .exists()
         )  # Corrected
         news_notification_unread = (
-            Notification.objects.filter(notification_type="news_notification")
+            BackofficeNotification.objects.filter(notification_type="news_notification")
             .exclude(users_read__id=user.id)
             .exists()
         )  # Corrected
         system_notification_unread = (
-            Notification.objects.filter(notification_type="system_notification")
+            BackofficeNotification.objects.filter(
+                notification_type="system_notification"
+            )
             .exclude(users_read__id=user.id)
             .exists()
         )  # Corrected
@@ -127,7 +129,7 @@ class IsUnreadNotificationView(generics.GenericAPIView):
 
 class AllNotificationsView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -137,20 +139,20 @@ class AllNotificationsView(generics.ListAPIView):
             try:
                 nb_start = int(nb_start)
                 nb_end = int(nb_end)
-                return Notification.objects.all().order_by("-created_at")[
+                return BackofficeNotification.objects.all().order_by("-created_at")[
                     nb_start:nb_end
                 ]  # Retrieve the specified number of notifications
             except ValueError:
-                return Notification.objects.none()
+                return BackofficeNotification.objects.none()
         else:
-            return Notification.objects.all().order_by(
+            return BackofficeNotification.objects.all().order_by(
                 "-created_at"
             )  # Retrieve all notifications ordered from most recent to oldest
 
 
 class MarkNotificationAsReadView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def post(self, request, *args, **kwargs):
         user = request.user
@@ -162,8 +164,8 @@ class MarkNotificationAsReadView(generics.GenericAPIView):
             )
 
         try:
-            notification = Notification.objects.get(id=notification_id)
-        except Notification.DoesNotExist:
+            notification = BackofficeNotification.objects.get(id=notification_id)
+        except BackofficeNotification.DoesNotExist:
             return Response(
                 {"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND
             )
@@ -178,11 +180,11 @@ class MarkNotificationAsReadView(generics.GenericAPIView):
 
 class MarkAllNotificationsAsReadView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        notifications = Notification.objects.exclude(users_read__id=user.id)
+        notifications = BackofficeNotification.objects.exclude(users_read__id=user.id)
         for notification in notifications:
             notification.users_read.add(user)
             notification.save()

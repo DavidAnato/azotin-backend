@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
                 ),
                 ("description", models.TextField()),
                 ("location", models.CharField(max_length=255)),
-                ("price", models.DecimalField(decimal_places=2, max_digits=9)),
+                ("price", models.DecimalField(decimal_places=0, max_digits=9)),
                 (
                     "frequency",
                     models.CharField(
@@ -72,7 +72,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("proposed_price", models.DecimalField(decimal_places=2, max_digits=9)),
+                ("proposed_price", models.DecimalField(decimal_places=0, max_digits=9)),
                 (
                     "frequency",
                     models.CharField(
@@ -147,7 +147,7 @@ class Migration(migrations.Migration):
                 (
                     "price",
                     models.DecimalField(
-                        decimal_places=2,
+                        decimal_places=0,
                         help_text="Minimum price for the job.",
                         max_digits=9,
                     ),

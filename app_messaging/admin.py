@@ -21,17 +21,17 @@ class ConversationAdmin(admin.ModelAdmin):
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = (
-        "sender",
         "conversation",
+        "sender",
         "content",
-        "job_offer",
-        "timestamp",
         "status",
+        "timestamp",
+        "job_offer",
         "edited_at",
         "read_at",
     )
     list_filter = ("status", "timestamp", "edited_at", "read_at")
-    search_fields = ("content",)
+    search_fields = ("content", "sender__first_name", "sender__last_name")
     inlines = [MessageMediaInline]
 
 

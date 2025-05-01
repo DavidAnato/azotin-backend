@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import NotificationToken, UserNotification
-from .serializers import NotificationSerializer, NotificationTokenSerializer
+from .serializers import NotificationTokenSerializer, UserNotificationSerializer
 
 
 class NotificationPagination(PageNumberPagination):
@@ -15,7 +15,7 @@ class NotificationPagination(PageNumberPagination):
 
 
 class NotificationListAPIView(generics.ListAPIView):
-    serializer_class = NotificationSerializer
+    serializer_class = UserNotificationSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = NotificationPagination
 

@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Notification
+from .models import BackofficeNotification
 
 User = get_user_model()
 
@@ -12,10 +12,18 @@ class UserSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class NotificationSerializer(serializers.ModelSerializer):
+class BackofficeNotificationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Notification
-        fields = ["id", "recipient", "message", "is_read", "created_at"]
+        model = BackofficeNotification
+        fields = [
+            "id",
+            "title",
+            "message",
+            "notification_type",
+            "object_id",
+            "created_at",
+            "users_read",
+        ]
         ref_name = "BackofficeNotificationSerializer"
 
 
