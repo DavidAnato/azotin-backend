@@ -1,9 +1,8 @@
 from rest_framework import serializers
 
-from app_job.models import Category, SubCategory
 from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 
-from .models import Job, JobApplication, JobOffer
+from .models import Category, Job, JobApplication, JobOffer, PaidService, SubCategory
 
 
 # Category Serializer
@@ -102,4 +101,15 @@ class JobSerializer(serializers.ModelSerializer):
             "completed",
             "created_at",
             "updated_at",
+        ]
+
+
+class PaidServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaidService
+        fields = [
+            "is_job_offer_paid",
+            "is_job_offer_paid_price",
+            "is_job_application_paid",
+            "is_job_application_paid_price",
         ]

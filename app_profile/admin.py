@@ -32,6 +32,15 @@ class WorkerProfileAdmin(admin.ModelAdmin):
         ),
     )
     inlines = [PreviousWorkPhotoInline]
+    list_display = (
+        "user",
+        "title",
+        "category",
+        "available_for_hire",
+        "total_jobs_completed",
+    )
+    list_filter = ("category", "available_for_hire")
+    search_fields = ("user__first_name", "user__last_name", "skills", "certifications")
 
 
 @admin.register(ClientProfile)
@@ -56,4 +65,12 @@ class ClientProfileAdmin(admin.ModelAdmin):
             "Localisation",
             {"fields": ("location_description",)},
         ),
+    )
+    list_display = ("user", "category", "service_type", "loyalty_points")
+    list_filter = ("category", "service_type")
+    search_fields = (
+        "user__first_name",
+        "user__last_name",
+        "service_name",
+        "service_description",
     )

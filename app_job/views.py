@@ -13,12 +13,21 @@ from rest_framework.views import APIView
 from app_notification.utils import create_user_notification
 from app_profile.models import ClientProfile, WorkerProfile
 
-from .models import Category, Job, JobApplication, JobFavorite, JobOffer, SubCategory
+from .models import (
+    Category,
+    Job,
+    JobApplication,
+    JobFavorite,
+    JobOffer,
+    PaidService,
+    SubCategory,
+)
 from .serializers import (
     CategorySerializer,
     JobApplicationSerializer,
     JobOfferSerializer,
     JobSerializer,
+    PaidServiceSerializer,
     SubCategorySerializer,
 )
 
@@ -798,3 +807,12 @@ class MarkAsCompletedView(APIView):
             return Response(
                 {"detail": "Job non trouvé."}, status=status.HTTP_404_NOT_FOUND
             )
+
+
+class CheckPaidServiceView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PaidServiceSerializer
+
+    def get_object(self):
+        paid_service = PaidService.objects.first()
+        return paid_service

@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 
 User = get_user_model()
@@ -54,7 +55,7 @@ class JobOffer(models.Model):
     responsability = models.TextField()
     location = models.CharField(max_length=255)
     price = models.DecimalField(
-        max_digits=9, decimal_places=2, help_text="Minimum price for the job."
+        max_digits=9, decimal_places=0, help_text="Minimum price for the job."
     )
     frequency = models.CharField(
         max_length=50,
@@ -138,7 +139,7 @@ class JobApplication(models.Model):
         related_name="job_applications",
         null=True,
     )
-    proposed_price = models.DecimalField(max_digits=9, decimal_places=2)
+    proposed_price = models.DecimalField(max_digits=9, decimal_places=0)
     frequency = models.CharField(
         max_length=50,
         blank=True,
@@ -191,7 +192,7 @@ class Job(models.Model):
     )
     description = models.TextField()
     location = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=9, decimal_places=2)
+    price = models.DecimalField(max_digits=9, decimal_places=0)
     frequency = models.CharField(
         max_length=50,
         blank=True,
@@ -229,3 +230,26 @@ class JobFavorite(models.Model):
 
     def __str__(self):
         return f"Favorite for {self.user.first_name} for {self.job_offer}"
+
+
+class PaidService(models.Model):
+    is_job_offer_paid = models.BooleanField(default=False)
+    is_job_offer_paid_price = models.DecimalField(
+        max_digits=10, decimal_places=0, null=True, blank=True
+    )
+    is_job_application_paid = models.BooleanField(default=False)
+    is_job_application_paid_price = models.DecimalField(
+        max_digits=10, decimal_places=0, null=True, blank=True
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.pk and PaidService.objects.exists():
+            raise ValidationError("Il existe déjà un objet PaidService.")
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "Configuration des services payants"
+
+    class Meta:
+        verbose_name = "Service Payant"
+        verbose_name_plural = "Service Payant"

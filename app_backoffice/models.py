@@ -4,7 +4,7 @@ from django.db import models
 User = get_user_model()
 
 
-class Notification(models.Model):
+class BackofficeNotification(models.Model):
     title = models.CharField(max_length=100)
     message = models.TextField()
     notification_type_choice = (

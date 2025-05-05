@@ -194,7 +194,7 @@ class Migration(migrations.Migration):
                 (
                     "rating",
                     models.DecimalField(
-                        blank=True, decimal_places=2, max_digits=3, null=True
+                        blank=True, decimal_places=0, max_digits=3, null=True
                     ),
                 ),
                 ("testimonials", models.TextField(blank=True, max_length=1000)),

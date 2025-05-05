@@ -146,7 +146,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.DecimalField(max_digits=3, decimal_places=2, blank=True, null=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=0, blank=True, null=True)
     testimonials = models.TextField(max_length=1000, blank=True)
 
     def __str__(self):

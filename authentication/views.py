@@ -7,7 +7,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import generics, permissions, status, views
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -315,6 +314,11 @@ class BaseLoginView(APIView):
 
     def enrich_user_data(self, user):
         user_data = UserSerializer(user).data
+        try:
+            settings = UserSettings.objects.get(user=user)
+            user_data["settings"] = UserSettingsSerializer(settings).data
+        except UserSettings.DoesNotExist:
+            user_data["settings"] = None
 
         try:
             if hasattr(user, "worker_profile"):
@@ -727,22 +731,24 @@ class CheckPhoneNumberView(APIView):
         return Response({"exists": user}, status=status.HTTP_200_OK)
 
 
-@api_view(["GET", "PUT"])
-@permission_classes([IsAuthenticated])
-def user_settings_view(request):
+class UserSettingsView(APIView):
     """
     Vue pour récupérer et mettre à jour les paramètres utilisateur
     """
-    try:
-        settings = UserSettings.objects.get(user=request.user)
-    except UserSettings.DoesNotExist:
-        settings = UserSettings.objects.create(user=request.user)
 
-    if request.method == "GET":
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, user):
+        settings, created = UserSettings.objects.get_or_create(user=user)
+        return settings
+
+    def get(self, request, *args, **kwargs):
+        settings = self.get_object(request.user)
         serializer = UserSettingsSerializer(settings)
         return Response(serializer.data)
 
-    elif request.method == "PUT":
+    def put(self, request, *args, **kwargs):
+        settings = self.get_object(request.user)
         serializer = UserSettingsSerializer(settings, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()

@@ -3,11 +3,11 @@ from rest_framework import serializers
 from .models import NotificationToken, UserNotification
 
 
-class NotificationSerializer(serializers.ModelSerializer):
+class UserNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserNotification
         fields = ["id", "message", "object", "is_read", "created_at"]
-        ref_name = "AppNotificationSerializer"
+        ref_name = "UserNotificationSerializer"
 
 
 class NotificationTokenSerializer(serializers.ModelSerializer):

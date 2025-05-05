@@ -7,8 +7,14 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from app_job.models import Job, JobApplication, JobOffer
-from app_notification.utils import create_user_notification, send_push_notification
+from app_notification.utils import (
+    create_user_notification,
+    send_email_async,
+    send_push_notification,
+    send_sms_async,
+)
 from app_profile.models import WorkerProfile
+from authentication.models import UserSettings
 
 from .models import NotificationToken, UserNotification
 
@@ -86,6 +92,17 @@ def notify_job_offer(sender, instance, created, **kwargs):
                             },
                         )
                     )
+                settings = UserSettings.objects.get(user=worker.user)
+                if settings.notification_sms:
+                    send_sms_async(
+                        worker.user.phone_number,
+                        f"Nouvelle offre d'emploi dans votre domaine : {instance.title}",
+                    )
+                if settings.notification_email:
+                    send_email_async(
+                        worker.user.email,
+                        f"Nouvelle offre d'emploi dans votre domaine : {instance.title}",
+                    )
 
 
 # Signal pour nouvelle candidature
@@ -116,6 +133,17 @@ def notify_job_application(sender, instance, created, **kwargs):
                     },
                 )
             )
+            settings = UserSettings.objects.get(user=instance.job_offer.client.user)
+            if settings.notification_sms:
+                send_sms_async(
+                    instance.job_offer.client.user.phone_number,
+                    f"Nouvelle candidature pour : {instance.job_offer.title}",
+                )
+            if settings.notification_email:
+                send_email_async(
+                    instance.job_offer.client.user.email,
+                    f"Nouvelle candidature pour : {instance.job_offer.title}",
+                )
 
 
 # Signal pour attribution d'un travail
@@ -175,6 +203,17 @@ def notify_job_assignment(sender, instance, created, **kwargs):
                         },
                     )
                 )
+                settings = UserSettings.objects.get(user=application.worker.user)
+                if settings.notification_sms:
+                    send_sms_async(
+                        application.worker.user.phone_number,
+                        f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
+                    )
+                if settings.notification_email:
+                    send_email_async(
+                        application.worker.user.email,
+                        f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
+                    )
 
 
 @receiver([post_save, post_delete], sender=UserNotification)

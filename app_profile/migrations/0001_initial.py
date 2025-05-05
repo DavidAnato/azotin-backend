@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
                 (
                     "average_spent",
                     models.DecimalField(
-                        blank=True, decimal_places=2, max_digits=10, null=True
+                        blank=True, decimal_places=0, max_digits=10, null=True
                     ),
                 ),
                 ("loyalty_points", models.IntegerField(default=0)),
@@ -91,7 +91,7 @@ class Migration(migrations.Migration):
                 (
                     "price",
                     models.DecimalField(
-                        blank=True, decimal_places=2, max_digits=6, null=True
+                        blank=True, decimal_places=0, max_digits=6, null=True
                     ),
                 ),
                 (
