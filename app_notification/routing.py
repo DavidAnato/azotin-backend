@@ -7,4 +7,8 @@ websocket_urlpatterns = [
     re_path(
         r"ws/notification-status/$", consumers.NotificationStatusConsumer.as_asgi()
     ),
+    # Compatibilité : anciennes URLs sans préfixe /ws/
+    re_path(
+        r"notification-status/$", consumers.NotificationStatusConsumer.as_asgi()
+    ),
 ]

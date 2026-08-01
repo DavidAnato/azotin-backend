@@ -1,4 +1,5 @@
 # Third-party imports
+import logging
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -34,7 +35,6 @@ from .serializers import (
     PhoneNumberValidateRequestSerializer,
     PINLoginSerializer,
     RegisterSerializer,
-    UserProfileSerializer,
     UserSerializer,
     UserSettingsSerializer,
 )
@@ -47,6 +47,18 @@ from .utils import (
 )
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+def create_user_profile(user, profile_type: str) -> None:
+    """Crée le profil client ou travailleur + paramètres utilisateur."""
+    UserSettings.objects.get_or_create(user=user)
+    if profile_type == "worker":
+        WorkerProfile.objects.get_or_create(user=user)
+    elif profile_type == "employer":
+        ClientProfile.objects.get_or_create(user=user)
+    else:
+        raise ValueError(f"Type de profil invalide : {profile_type}")
 
 
 class UserRegisterView(generics.CreateAPIView):
@@ -59,17 +71,16 @@ class UserRegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            # Vérifier que les clés API sont configurées
-            if not settings.OURVOICE_API_KEY or not settings.OURVOICE_APP_ID:
-                return Response(
-                    {"error": "La configuration GetOurVoice est manquante."},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-            # On essaie d'abord d'envoyer l'OTP si un numéro de téléphone est fourni
             phone_number = serializer.validated_data.get("phone_number")
             if phone_number:
-                # Envoyer un OTP via GetOurVoice
+                if not getattr(settings, "OTP_SKIP_SMS", False) and (
+                    not settings.OURVOICE_API_KEY or not settings.OURVOICE_APP_ID
+                ):
+                    return Response(
+                        {"error": "La configuration GetOurVoice est manquante."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
                 success, response = send_otp(
                     phone_number=phone_number,
                     api_key=settings.OURVOICE_API_KEY,
@@ -91,17 +102,14 @@ class UserRegisterView(generics.CreateAPIView):
                 user.is_active = False
                 user.save()
 
-                # Créer le profil en fonction du type de profil
-                profile_type = serializer.validated_data.get("profile_type")
-                if profile_type == "worker":
-                    WorkerProfile.objects.create(user=user)
-                elif profile_type == "employer":
-                    ClientProfile.objects.create(user=user)
-
-                return Response(
-                    {"message": "Code OTP envoyé avec succès."},
-                    status=status.HTTP_201_CREATED,
+                create_user_profile(
+                    user, serializer.validated_data["profile_type"]
                 )
+
+                payload = {"message": "Code OTP envoyé avec succès."}
+                if getattr(settings, "OTP_SKIP_SMS", False):
+                    payload["dev_otp"] = getattr(settings, "DEV_OTP_CODE", "00000")
+                return Response(payload, status=status.HTTP_201_CREATED)
             else:
                 # Si pas de numéro de téléphone, créer l'utilisateur directement
                 user = serializer.save()
@@ -144,10 +152,10 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            return Response(
-                {"message": "Code OTP envoyé avec succès."},
-                status=status.HTTP_200_OK,
-            )
+            payload = {"message": "Code OTP envoyé avec succès."}
+            if getattr(settings, "OTP_SKIP_SMS", False):
+                payload["dev_otp"] = getattr(settings, "DEV_OTP_CODE", "00000")
+            return Response(payload, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response(
                 {"error": "Utilisateur non trouvé avec ce numéro."},
@@ -312,8 +320,9 @@ class BaseLoginView(APIView):
     Base class for login views to enrich user data with profile-specific information.
     """
 
-    def enrich_user_data(self, user):
-        user_data = UserSerializer(user).data
+    def enrich_user_data(self, user, request=None):
+        context = {"request": request} if request is not None else {}
+        user_data = UserSerializer(user, context=context).data
         try:
             settings = UserSettings.objects.get(user=user)
             user_data["settings"] = UserSettingsSerializer(settings).data
@@ -321,19 +330,22 @@ class BaseLoginView(APIView):
             user_data["settings"] = None
 
         try:
-            if hasattr(user, "worker_profile"):
-                worker_profile = WorkerProfileSerializer(user.worker_profile).data
+            worker = WorkerProfile.objects.filter(user=user).first()
+            client = ClientProfile.objects.filter(user=user).first()
+            if worker is not None:
+                worker_profile = WorkerProfileSerializer(worker).data
                 worker_profile["previous_work_photos"] = PreviousWorkPhotoSerializer(
-                    user.worker_profile.previous_work_photos.all(), many=True
+                    worker.previous_work_photos.all(), many=True
                 ).data
                 user_data["worker_profile"] = worker_profile
-            elif hasattr(user, "client_profile"):
-                client_profile = ClientProfileSerializer(user.client_profile).data
-                user_data["client_profile"] = client_profile
+            elif client is not None:
+                user_data["client_profile"] = ClientProfileSerializer(client).data
         except Exception as e:
-            return Response(
-                f"Error enriching user data: {e}", status=status.HTTP_400_BAD_REQUEST
-            )
+            # Ne jamais renvoyer un Response ici : le caller l’embarque dans le JSON user
+            # et provoquait un 500 côté pin-login / login.
+            logger.exception("Error enriching user data for user_id=%s: %s", user.pk, e)
+            user_data.setdefault("worker_profile", None)
+            user_data.setdefault("client_profile", None)
 
         return user_data
 
@@ -352,7 +364,7 @@ class LoginView(BaseLoginView, generics.GenericAPIView):
         access_token = str(refresh.access_token)
 
         # Enrich user data
-        user_data = self.enrich_user_data(user)
+        user_data = self.enrich_user_data(user, request)
 
         return Response(
             {
@@ -436,7 +448,7 @@ class GoogleLoginView(BaseLoginView, generics.GenericAPIView):
         access_token = str(refresh.access_token)
 
         # Enrich user data
-        user_data = self.enrich_user_data(user)
+        user_data = self.enrich_user_data(user, request)
 
         return Response(
             {
@@ -471,7 +483,7 @@ class PINLoginView(BaseLoginView, generics.GenericAPIView):
             access_token = str(refresh.access_token)
 
             # Enrich user data
-            user_data = self.enrich_user_data(user)
+            user_data = self.enrich_user_data(user, request)
 
             return Response(
                 {
@@ -644,58 +656,47 @@ class LogoutView(views.APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserProfileView(APIView):
+class EnsureProfileView(BaseLoginView, APIView):
     """
-    An endpoint for retrieving the authenticated user's profile information.
+    Crée le profil client/travailleur si absent (comptes inscrits avant correctif).
     """
 
-    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        profile_type = request.data.get("profile_type")
+        if profile_type not in ("worker", "employer"):
+            return Response(
+                {"error": "profile_type requis : worker ou employer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+        has_profile = WorkerProfile.objects.filter(user=user).exists() or (
+            ClientProfile.objects.filter(user=user).exists()
+        )
+        if not has_profile:
+            try:
+                create_user_profile(user, profile_type)
+            except ValueError as exc:
+                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {"user": self.enrich_user_data(user, request)},
+            status=status.HTTP_200_OK,
+        )
+
+
+class UserProfileView(BaseLoginView):
+    """
+    Profil de l'utilisateur authentifié — même forme enrichie que le login.
+    """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-        data = {
-            "user": UserProfileSerializer(user).data,  # Serialize user base information
-        }
-
-        # Add WorkerProfile if it exists
-        try:
-            worker_profile = WorkerProfile.objects.get(user=user)
-            data["worker_profile"] = {
-                "title": worker_profile.title,
-                "skills": worker_profile.skills,
-                "experience": worker_profile.experience,
-                "price": worker_profile.price,
-                "frequency": worker_profile.frequency,
-                "certifications": worker_profile.certifications,
-                "available_for_hire": worker_profile.available_for_hire,
-                "total_jobs_completed": worker_profile.total_jobs_completed,
-                "previous_work_photos": [
-                    photo.photo.url
-                    for photo in worker_profile.previous_work_photos.all()
-                ],
-            }
-        except WorkerProfile.DoesNotExist:
-            pass
-
-        # Add ClientProfile if it exists
-        try:
-            client_profile = ClientProfile.objects.get(user=user)
-            data["client_profile"] = {
-                "preferred_payment_method": client_profile.preferred_payment_method,
-                "average_spent": client_profile.average_spent,
-                "loyalty_points": client_profile.loyalty_points,
-                "service_name": client_profile.service_name,
-                "service_type": client_profile.service_type,
-                "service_description": client_profile.service_description,
-                "location_description": client_profile.location_description,
-                "location_latitude": client_profile.location_latitude,
-                "location_longitude": client_profile.location_longitude,
-            }
-        except ClientProfile.DoesNotExist:
-            pass
-
-        return Response(data, status=status.HTTP_200_OK)
+        user_data = self.enrich_user_data(request.user, request)
+        return Response({"user": user_data}, status=status.HTTP_200_OK)
 
 
 class CodePINCreateView(generics.CreateAPIView):

@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AllNotificationsView,
     ClientProfileViewSet,
+    ContentReportCreateView,
     IsUnreadNotificationView,
     JobApplicationViewSet,
     JobOfferViewSet,
@@ -11,6 +12,10 @@ from .views import (
     JobViewSet,
     MarkAllNotificationsAsReadView,
     MarkNotificationAsReadView,
+    StaffContractViewSet,
+    StaffPlatformSettingsView,
+    StaffWalletViewSet,
+    StaffWithdrawalViewSet,
     UnreadNotificationCountView,
     UserViewSet,
     WorkerProfileViewSet,
@@ -23,9 +28,14 @@ router.register(r"client-profiles", ClientProfileViewSet)
 router.register(r"job-offers", JobOfferViewSet)
 router.register(r"job-applications", JobApplicationViewSet)
 router.register(r"jobs", JobViewSet, basename="job")
+router.register(r"contracts", StaffContractViewSet, basename="staff-contract")
+router.register(r"wallets", StaffWalletViewSet, basename="staff-wallet")
+router.register(r"withdrawals", StaffWithdrawalViewSet, basename="staff-withdrawal")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("settings/", StaffPlatformSettingsView.as_view(), name="staff-platform-settings"),
+    path("reports/", ContentReportCreateView.as_view(), name="content-report-create"),
     path("job-statistics/", JobStatisticsView.as_view(), name="job-statistics"),
     path(
         "unread-notifications-count/",

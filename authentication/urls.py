@@ -7,6 +7,7 @@ from .views import (
     CodePINUpdateView,
     EmailActivateView,
     EmailValidateRequestView,
+    EnsureProfileView,
     GoogleLoginView,
     LoginView,
     LogoutView,
@@ -46,6 +47,7 @@ urlpatterns = [
     ),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("user-profile/", UserProfileView.as_view(), name="user-profile"),
+    path("ensure-profile/", EnsureProfileView.as_view(), name="ensure-profile"),
     path(
         "phone-number-validate-request/",
         PhoneNumberValidateRequestView.as_view(),

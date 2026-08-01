@@ -7,12 +7,14 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from app_job.models import Job, JobApplication, JobOffer
+from app_notification.prefs import get_notification_settings
 from app_notification.utils import (
     create_user_notification,
-    send_email_async,
+    send_email_if_configured,
     send_push_notification,
-    send_sms_async,
+    send_sms_if_configured,
 )
+from app_notification.sse import publish_notification_sse
 from app_profile.models import WorkerProfile
 from authentication.models import UserSettings
 
@@ -35,6 +37,7 @@ def run_async(coroutine):
 @receiver(post_save, sender=User)
 def notify_new_user(sender, instance, created, **kwargs):
     if created:
+        UserSettings.objects.get_or_create(user=instance)
         create_user_notification(
             recipient=instance,
             message="Bienvenue sur notre plateforme ! 🎉",
@@ -92,14 +95,14 @@ def notify_job_offer(sender, instance, created, **kwargs):
                             },
                         )
                     )
-                settings = UserSettings.objects.get(user=worker.user)
+                settings = get_notification_settings(worker.user)
                 if settings.notification_sms:
-                    send_sms_async(
+                    send_sms_if_configured(
                         worker.user.phone_number,
                         f"Nouvelle offre d'emploi dans votre domaine : {instance.title}",
                     )
                 if settings.notification_email:
-                    send_email_async(
+                    send_email_if_configured(
                         worker.user.email,
                         f"Nouvelle offre d'emploi dans votre domaine : {instance.title}",
                     )
@@ -133,17 +136,17 @@ def notify_job_application(sender, instance, created, **kwargs):
                     },
                 )
             )
-            settings = UserSettings.objects.get(user=instance.job_offer.client.user)
-            if settings.notification_sms:
-                send_sms_async(
-                    instance.job_offer.client.user.phone_number,
-                    f"Nouvelle candidature pour : {instance.job_offer.title}",
-                )
-            if settings.notification_email:
-                send_email_async(
-                    instance.job_offer.client.user.email,
-                    f"Nouvelle candidature pour : {instance.job_offer.title}",
-                )
+        settings = get_notification_settings(instance.job_offer.client.user)
+        if settings.notification_sms:
+            send_sms_if_configured(
+                instance.job_offer.client.user.phone_number,
+                f"Nouvelle candidature pour : {instance.job_offer.title}",
+            )
+        if settings.notification_email:
+            send_email_if_configured(
+                instance.job_offer.client.user.email,
+                f"Nouvelle candidature pour : {instance.job_offer.title}",
+            )
 
 
 # Signal pour attribution d'un travail
@@ -203,17 +206,17 @@ def notify_job_assignment(sender, instance, created, **kwargs):
                         },
                     )
                 )
-                settings = UserSettings.objects.get(user=application.worker.user)
-                if settings.notification_sms:
-                    send_sms_async(
-                        application.worker.user.phone_number,
-                        f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
-                    )
-                if settings.notification_email:
-                    send_email_async(
-                        application.worker.user.email,
-                        f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
-                    )
+            settings = get_notification_settings(application.worker.user)
+            if settings.notification_sms:
+                send_sms_if_configured(
+                    application.worker.user.phone_number,
+                    f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
+                )
+            if settings.notification_email:
+                send_email_if_configured(
+                    application.worker.user.email,
+                    f"Le poste '{instance.job_offer.title}' a été attribué à un autre candidat",
+                )
 
 
 @receiver([post_save, post_delete], sender=UserNotification)
@@ -225,8 +228,15 @@ def notification_status_update(sender, instance, **kwargs):
         recipient=instance.recipient, is_read=False
     ).exists()
 
-    # Envoyer la mise à jour au websocket
-    async_to_sync(channel_layer.group_send)(
-        f"notification_status_{instance.recipient.id}",
-        {"type": "notification_status_update", "has_unread": has_unread},
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"notification_status_{instance.recipient.id}",
+            {"type": "notification_status_update", "has_unread": has_unread},
+        )
+    except Exception:
+        pass
+
+    publish_notification_sse(
+        instance.recipient.id,
+        {"type": "notification_status", "has_unread": has_unread},
     )

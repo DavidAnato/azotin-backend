@@ -189,6 +189,35 @@ class UserSettings(models.Model):
         default="public",
         help_text="Visibilité du profil",
     )
+    show_phone_number = models.BooleanField(
+        default=True, help_text="Afficher le numéro de téléphone sur le profil"
+    )
+    show_online_status = models.BooleanField(
+        default=True, help_text="Afficher le statut en ligne"
+    )
+    allow_messages = models.BooleanField(
+        default=True, help_text="Autoriser les messages entrants"
+    )
+    allow_calls = models.BooleanField(
+        default=True, help_text="Autoriser les appels entrants"
+    )
+
+    # Expérience app
+    sound_enabled = models.BooleanField(
+        default=True, help_text="Sons de l'application"
+    )
+    haptics_enabled = models.BooleanField(
+        default=True, help_text="Retours haptiques"
+    )
+    marketing_notifications = models.BooleanField(
+        default=False, help_text="Offres et nouveautés AZƆTƐN"
+    )
+    language = models.CharField(
+        max_length=10,
+        default="fr",
+        choices=[("fr", "Français"), ("fon", "Fongbé"), ("en", "English")],
+        help_text="Langue de l'application",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

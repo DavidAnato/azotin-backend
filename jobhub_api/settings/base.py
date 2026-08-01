@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "app_backoffice",
     "app_messaging",
     "app_notification",
+    "app_escrow",
 ]
 
 MIDDLEWARE = [
@@ -239,3 +240,17 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # GetOurVoice Configuration
 OURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
 OURVOICE_APP_ID = config("GETOURVOICE_APP_ID", default="")
+
+# OTP inscription (désactiver l'envoi SMS en dev)
+OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=False, cast=bool)
+DEV_OTP_CODE = config("DEV_OTP_CODE", default="00000")
+
+# FedaPay Escrow (ne jamais committer les vraies clés)
+FEDAPAY_PUBLIC_KEY = config("FEDAPAY_PUBLIC_KEY", default="")
+FEDAPAY_SECRET_KEY = config("FEDAPAY_SECRET_KEY", default="")
+FEDAPAY_WEBHOOK_SECRET = config("FEDAPAY_WEBHOOK_SECRET", default="")
+FEDAPAY_ENVIRONMENT = config("FEDAPAY_ENVIRONMENT", default="sandbox")
+FEDAPAY_SKIP_WEBHOOK_SIGNATURE = config(
+    "FEDAPAY_SKIP_WEBHOOK_SIGNATURE", default=False, cast=bool
+)
+PUBLIC_API_BASE_URL = config("PUBLIC_API_BASE_URL", default="http://localhost:8000")

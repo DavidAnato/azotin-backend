@@ -1,6 +1,15 @@
 from typing import Dict, Tuple
 
 import requests
+from django.conf import settings
+
+
+def _otp_sms_disabled() -> bool:
+    return bool(getattr(settings, "OTP_SKIP_SMS", False))
+
+
+def _dev_otp_code() -> str:
+    return getattr(settings, "DEV_OTP_CODE", "00000")
 
 
 def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
@@ -17,6 +26,12 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
             - succès: True si l'envoi a réussi, False sinon
             - réponse: La réponse de l'API ou le message d'erreur
     """
+    if _otp_sms_disabled():
+        return True, {
+            "message": "SMS OTP désactivé (mode développement).",
+            "dev_otp": _dev_otp_code(),
+        }
+
     # Vérification des paramètres requis
     if not phone_number:
         return False, {"error": "Le numéro de téléphone est requis"}
@@ -74,6 +89,16 @@ def verify_otp(
             - succès: True si la vérification a réussi, False sinon
             - réponse: La réponse de l'API ou le message d'erreur
     """
+    if _otp_sms_disabled():
+        if code == _dev_otp_code():
+            return True, {
+                "success": True,
+                "valid": True,
+                "message": "Code validé (mode développement).",
+                "data": {"status": "verified"},
+            }
+        return False, {"error": "Code OTP invalide."}
+
     if not api_key or not app_id:
         return False, {"error": "API key et APP ID sont requis"}
 
