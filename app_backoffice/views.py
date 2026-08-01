@@ -3,6 +3,8 @@ from rest_framework import filters, generics, permissions, status, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
+from app_escrow.models import Contract, Wallet, Withdrawal
+from app_escrow.platform_settings import get_platform_settings
 from app_job.models import Job, JobApplication, JobOffer
 from app_job.serializers import (
     JobApplicationSerializer,
@@ -13,8 +15,16 @@ from app_profile.models import ClientProfile, WorkerProfile
 from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 from authentication.serializers import UserSerializer
 
-from .models import Notification
-from .serializers import JobStatisticsSerializer, NotificationSerializer
+from .models import BackofficeNotification, ContentReport
+from .serializers import (
+    BackofficeNotificationSerializer,
+    ContentReportSerializer,
+    JobStatisticsSerializer,
+    StaffContractSerializer,
+    StaffWalletSerializer,
+    StaffWithdrawalSerializer,
+    PlatformSettingsSerializer,
+)
 
 User = get_user_model()
 
@@ -25,12 +35,32 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class IsStaffUser(permissions.BasePermission):
+    """Allow only authenticated staff users."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_staff
+        )
+
+
 class BaseViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     # permission_classes = [permissions.IsAdminUser | permissions.IsAuthenticated]
     permission_classes = [permissions.AllowAny]
     ordering = ["-id"]  # Default ordering by most recent
+
+
+class StaffReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only staff listings for escrow finance module."""
+
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    permission_classes = [IsStaffUser]
+    ordering = ["-id"]
 
 
 class UserViewSet(BaseViewSet):
@@ -70,8 +100,8 @@ class JobApplicationViewSet(BaseViewSet):
 
 class JobViewSet(BaseViewSet):
     serializer_class = JobSerializer
-    search_fields = ["title", "description", "location"]
-    ordering_fields = ["title", "created_at", "location"]
+    search_fields = ["title", "description"]
+    ordering_fields = ["title", "created_at"]
 
     def get_queryset(self):
         queryset = Job.objects.all()
@@ -84,11 +114,11 @@ class JobViewSet(BaseViewSet):
 # Notifications
 class UnreadNotificationCountView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        unread_count = Notification.objects.exclude(
+        unread_count = BackofficeNotification.objects.exclude(
             users_read__id=user.id
         ).count()  # Corrected
         return Response({"unread_count": unread_count})
@@ -96,22 +126,24 @@ class UnreadNotificationCountView(generics.GenericAPIView):
 
 class IsUnreadNotificationView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def get(self, request, *args, **kwargs):
         user = request.user
         user_notification_unread = (
-            Notification.objects.filter(notification_type="user_notification")
+            BackofficeNotification.objects.filter(notification_type="user_notification")
             .exclude(users_read__id=user.id)
             .exists()
         )  # Corrected
         news_notification_unread = (
-            Notification.objects.filter(notification_type="news_notification")
+            BackofficeNotification.objects.filter(notification_type="news_notification")
             .exclude(users_read__id=user.id)
             .exists()
         )  # Corrected
         system_notification_unread = (
-            Notification.objects.filter(notification_type="system_notification")
+            BackofficeNotification.objects.filter(
+                notification_type="system_notification"
+            )
             .exclude(users_read__id=user.id)
             .exists()
         )  # Corrected
@@ -127,7 +159,7 @@ class IsUnreadNotificationView(generics.GenericAPIView):
 
 class AllNotificationsView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -137,20 +169,20 @@ class AllNotificationsView(generics.ListAPIView):
             try:
                 nb_start = int(nb_start)
                 nb_end = int(nb_end)
-                return Notification.objects.all().order_by("-created_at")[
+                return BackofficeNotification.objects.all().order_by("-created_at")[
                     nb_start:nb_end
                 ]  # Retrieve the specified number of notifications
             except ValueError:
-                return Notification.objects.none()
+                return BackofficeNotification.objects.none()
         else:
-            return Notification.objects.all().order_by(
+            return BackofficeNotification.objects.all().order_by(
                 "-created_at"
             )  # Retrieve all notifications ordered from most recent to oldest
 
 
 class MarkNotificationAsReadView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def post(self, request, *args, **kwargs):
         user = request.user
@@ -162,8 +194,8 @@ class MarkNotificationAsReadView(generics.GenericAPIView):
             )
 
         try:
-            notification = Notification.objects.get(id=notification_id)
-        except Notification.DoesNotExist:
+            notification = BackofficeNotification.objects.get(id=notification_id)
+        except BackofficeNotification.DoesNotExist:
             return Response(
                 {"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND
             )
@@ -178,11 +210,11 @@ class MarkNotificationAsReadView(generics.GenericAPIView):
 
 class MarkAllNotificationsAsReadView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = NotificationSerializer  # Ajouté
+    serializer_class = BackofficeNotificationSerializer  # Ajouté
 
     def post(self, request, *args, **kwargs):
         user = request.user
-        notifications = Notification.objects.exclude(users_read__id=user.id)
+        notifications = BackofficeNotification.objects.exclude(users_read__id=user.id)
         for notification in notifications:
             notification.users_read.add(user)
             notification.save()
@@ -214,3 +246,103 @@ class JobStatisticsView(generics.GenericAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ContentReportCreateView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ContentReportSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(reporter=self.request.user)
+
+
+class StaffContractViewSet(StaffReadOnlyViewSet):
+    serializer_class = StaffContractSerializer
+    search_fields = [
+        "title",
+        "description",
+        "status",
+        "client__first_name",
+        "client__last_name",
+        "client__email",
+        "freelancer__first_name",
+        "freelancer__last_name",
+        "freelancer__email",
+    ]
+    ordering_fields = [
+        "id",
+        "title",
+        "amount",
+        "status",
+        "created_at",
+        "updated_at",
+        "funded_at",
+        "completed_at",
+    ]
+
+    def get_queryset(self):
+        qs = Contract.objects.select_related("client", "freelancer").prefetch_related(
+            "payments"
+        )
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            statuses = [s.strip() for s in status_filter.split(",") if s.strip()]
+            if len(statuses) == 1:
+                qs = qs.filter(status=statuses[0])
+            elif statuses:
+                qs = qs.filter(status__in=statuses)
+        return qs
+
+
+class StaffWalletViewSet(StaffReadOnlyViewSet):
+    serializer_class = StaffWalletSerializer
+    search_fields = [
+        "owner__first_name",
+        "owner__last_name",
+        "owner__email",
+        "owner__phone_number",
+    ]
+    ordering_fields = ["id", "balance", "created_at", "updated_at"]
+
+    def get_queryset(self):
+        return Wallet.objects.select_related("owner").prefetch_related("withdrawals")
+
+
+class StaffWithdrawalViewSet(StaffReadOnlyViewSet):
+    serializer_class = StaffWithdrawalSerializer
+    search_fields = [
+        "status",
+        "phone_number",
+        "method",
+        "wallet__owner__first_name",
+        "wallet__owner__last_name",
+        "wallet__owner__email",
+    ]
+    ordering_fields = [
+        "id",
+        "amount",
+        "status",
+        "created_at",
+        "processed_at",
+        "updated_at",
+    ]
+
+    def get_queryset(self):
+        qs = Withdrawal.objects.select_related("wallet", "wallet__owner")
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            statuses = [s.strip() for s in status_filter.split(",") if s.strip()]
+            if len(statuses) == 1:
+                qs = qs.filter(status=statuses[0])
+            elif statuses:
+                qs = qs.filter(status__in=statuses)
+        return qs
+
+
+class StaffPlatformSettingsView(generics.RetrieveUpdateAPIView):
+    """GET/PATCH commission plateforme (admin)."""
+
+    serializer_class = PlatformSettingsSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_object(self):
+        return get_platform_settings()

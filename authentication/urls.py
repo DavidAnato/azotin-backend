@@ -1,6 +1,26 @@
 from django.urls import path
 
-from .views import *
+from .views import (
+    ChangePasswordView,
+    CheckPhoneNumberView,
+    CodePINCreateView,
+    CodePINUpdateView,
+    EmailActivateView,
+    EmailValidateRequestView,
+    EnsureProfileView,
+    GoogleLoginView,
+    LoginView,
+    LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    PhoneNumberValidateConfirmView,
+    PhoneNumberValidateRequestView,
+    PINLoginView,
+    SetPasswordView,
+    UserProfileView,
+    UserRegisterView,
+    UserSettingsView,
+)
 
 urlpatterns = [
     path("register/", UserRegisterView.as_view(), name="user-register"),
@@ -27,6 +47,7 @@ urlpatterns = [
     ),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("user-profile/", UserProfileView.as_view(), name="user-profile"),
+    path("ensure-profile/", EnsureProfileView.as_view(), name="ensure-profile"),
     path(
         "phone-number-validate-request/",
         PhoneNumberValidateRequestView.as_view(),
@@ -42,4 +63,5 @@ urlpatterns = [
     path(
         "check-phone-number/", CheckPhoneNumberView.as_view(), name="check-phone-number"
     ),
+    path("settings/", UserSettingsView.as_view(), name="user-settings"),
 ]

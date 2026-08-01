@@ -1,22 +1,33 @@
 from django.urls import path
 
 from .views import (
+    AskToMarkAsCompletedView,
+    CategoryAndSubCategoryListView,
+    CheckPaidServiceView,
+    ClientJobStatisticsView,
+    HandleJobFavoriteView,
     JobApplicationDetailView,
     JobApplicationListCreateView,
     JobCreateView,
     JobDetailView,
-    JobFavoriteListView,
     JobHistoryListView,
     JobOfferDetailView,
     JobOfferListCreateView,
+    JobOfferSuggestionListView,
     JobSearchView,
-    JobSuggestionListView,
+    MarkAsCompletedView,
+    WorkerJobStatisticsView,
+    WorkerMyApplicationsListView,
 )
 
 urlpatterns = [
     # Job Offers
     path("job-offers/", JobOfferListCreateView.as_view(), name="job-offer-list-create"),
-    path("job-offers/<int:pk>/", JobOfferDetailView.as_view(), name="job-offer-detail"),
+    path(
+        "job-offers/<int:pk>/",
+        JobOfferDetailView.as_view(),
+        name="job-offer-detail",
+    ),
     # Job Applications
     path(
         "job-offers/<int:job_offer_id>/applications/",
@@ -35,14 +46,56 @@ urlpatterns = [
         name="job-create",
     ),
     path("jobs/<int:pk>/", JobDetailView.as_view(), name="job-detail"),
-    # Job Favorite
-    path("job-favorites/", JobFavoriteListView.as_view(), name="job-favorite-list"),
+    path(
+        "job-offers/favorites/<int:job_offer_id>/toggle/",
+        HandleJobFavoriteView.as_view(),
+        name="job-offer-favorite-toggle",
+    ),
     # Job History
     path("job-history/", JobHistoryListView.as_view(), name="job-history-list"),
     # Job Suggestion
     path(
-        "job-suggestions/", JobSuggestionListView.as_view(), name="job-suggestion-list"
+        "job-suggestions/",
+        JobOfferSuggestionListView.as_view(),
+        name="job-offer-suggestion-list",
     ),
     # Job Search
     path("job-search/", JobSearchView.as_view(), name="job-search"),
+    # Category and SubCategory
+    path(
+        "categories-and-subcategories/",
+        CategoryAndSubCategoryListView.as_view(),
+        name="category-and-subcategory-list",
+    ),
+    # Client Job Statistics
+    path(
+        "client-job-statistics/",
+        ClientJobStatisticsView.as_view(),
+        name="client-job-statistics",
+    ),
+    path(
+        "worker-job-statistics/",
+        WorkerJobStatisticsView.as_view(),
+        name="worker-job-statistics",
+    ),
+    path(
+        "my-applications/",
+        WorkerMyApplicationsListView.as_view(),
+        name="worker-my-applications",
+    ),
+    path(
+        "ask-complete/<int:job_offer_id>/",
+        AskToMarkAsCompletedView.as_view(),
+        name="ask-complete-job",
+    ),
+    path(
+        "mark-completed/<int:job_offer_id>/",
+        MarkAsCompletedView.as_view(),
+        name="mark-job-completed",
+    ),
+    path(
+        "check-paid-service/",
+        CheckPaidServiceView.as_view(),
+        name="check-paid-service",
+    ),
 ]

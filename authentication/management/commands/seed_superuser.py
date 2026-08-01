@@ -1,0 +1,26 @@
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = "Seed the database with a default superuser if one doesn't exist"
+
+    def handle(self, *args, **kwargs):
+        User = get_user_model()
+        if not User.objects.filter(is_superuser=True).exists():
+            first_name = "Admin"
+            email = "admin@azotin.com"
+            phone_number = "1234567890"
+            password = "adminpassword"
+            code_pin = "0000"
+
+            User.objects.create_superuser(
+                first_name=first_name,
+                email=email,
+                phone_number=phone_number,
+                password=password,
+                code_pin=code_pin,
+            )
+            self.stdout.write(self.style.SUCCESS("Superuser created successfully."))
+        else:
+            self.stdout.write(self.style.WARNING("Superuser already exists."))

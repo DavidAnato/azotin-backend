@@ -7,22 +7,12 @@ from django.db import models
 from django.utils.text import slugify
 
 from .managers import CustomUserManager
-from .utils import *
 
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom User model extending AbstractBaseUser and PermissionsMixin.
     """
-
-    # Category
-    category = models.ForeignKey(
-        "app_job.Category",
-        on_delete=models.CASCADE,
-        related_name="users",
-        null=True,
-        blank=True,
-    )
 
     # Personal Information
     email = models.EmailField(
@@ -44,6 +34,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Security Information
     code_pin = models.CharField(max_length=4, null=True, blank=True)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_generated_at = models.DateTimeField(null=True, blank=True)
 
     # Account Information
     is_active = models.BooleanField(default=True)
@@ -69,11 +61,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     online_status = models.BooleanField(default=False)
 
     # Location fields
-    localisation_longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+    location_longitude = models.DecimalField(
+        max_digits=20, decimal_places=10, blank=True, null=True
     )
-    localisation_latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, blank=True, null=True
+    location_latitude = models.DecimalField(
+        max_digits=20, decimal_places=10, blank=True, null=True
     )
 
     # Google authentication fields
@@ -81,9 +73,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     picture_url = models.URLField("Picture URL", blank=True, null=True)
     verified_email = models.BooleanField("Verified Email", default=False)
 
-    # OTP fields
-    otp_code = models.CharField("OTP Code", max_length=5, null=True, blank=True)
-    otp_generated_at = models.DateTimeField("OTP Generated At", null=True, blank=True)
+    # Social Media
+    linkedin = models.URLField("Linkedin URL", blank=True, null=True)
+    twitter = models.URLField("Twitter URL", blank=True, null=True)
+    facebook = models.URLField("Facebook URL", blank=True, null=True)
+    instagram = models.URLField("Instagram URL", blank=True, null=True)
+    website = models.URLField("Website URL", blank=True, null=True)
 
     USERNAME_FIELD = "phone_number"
     REQUIRED_FIELDS = ["email", "first_name"]
@@ -151,8 +146,85 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.DecimalField(max_digits=3, decimal_places=2, blank=True, null=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=0, blank=True, null=True)
     testimonials = models.TextField(max_length=1000, blank=True)
 
     def __str__(self):
         return f"Review by {self.user.first_name} {self.user.last_name}"
+
+
+class UserSettings(models.Model):
+    """
+    Modèle pour gérer les paramètres de sécurité et de notification des utilisateurs
+    """
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="settings")
+
+    # Paramètres de sécurité
+    use_biometric = models.BooleanField(
+        default=False, help_text="Activer l'authentification biométrique"
+    )
+    use_face_id = models.BooleanField(default=False, help_text="Activer Face ID")
+    use_pin = models.BooleanField(default=False, help_text="Activer le code PIN")
+
+    # Paramètres de notification
+    notification_email = models.BooleanField(
+        default=True, help_text="Activer les notifications par email"
+    )
+    notification_sms = models.BooleanField(
+        default=True, help_text="Activer les notifications par SMS"
+    )
+    notification_push = models.BooleanField(
+        default=True, help_text="Activer les notifications push"
+    )
+
+    # Paramètres de confidentialité
+    profile_visibility = models.CharField(
+        max_length=20,
+        choices=[
+            ("public", "Public"),
+            ("private", "Privé"),
+            ("connections", "Connexions uniquement"),
+        ],
+        default="public",
+        help_text="Visibilité du profil",
+    )
+    show_phone_number = models.BooleanField(
+        default=True, help_text="Afficher le numéro de téléphone sur le profil"
+    )
+    show_online_status = models.BooleanField(
+        default=True, help_text="Afficher le statut en ligne"
+    )
+    allow_messages = models.BooleanField(
+        default=True, help_text="Autoriser les messages entrants"
+    )
+    allow_calls = models.BooleanField(
+        default=True, help_text="Autoriser les appels entrants"
+    )
+
+    # Expérience app
+    sound_enabled = models.BooleanField(
+        default=True, help_text="Sons de l'application"
+    )
+    haptics_enabled = models.BooleanField(
+        default=True, help_text="Retours haptiques"
+    )
+    marketing_notifications = models.BooleanField(
+        default=False, help_text="Offres et nouveautés AZƆTƐN"
+    )
+    language = models.CharField(
+        max_length=10,
+        default="fr",
+        choices=[("fr", "Français"), ("fon", "Fongbé"), ("en", "English")],
+        help_text="Langue de l'application",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Paramètres utilisateur"
+        verbose_name_plural = "Paramètres utilisateurs"
+
+    def __str__(self):
+        return f"Paramètres de {self.user.first_name} {self.user.last_name}"

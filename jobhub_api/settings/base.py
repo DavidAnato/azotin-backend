@@ -13,20 +13,19 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = config("SECRET_KEY", default="insecure-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -39,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "daphne",
     "django.contrib.staticfiles",
     "django.contrib.sites",
     # corsheader
@@ -48,11 +48,16 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     # swagger
     "drf_yasg",
+    "channels",
+    "channels_redis",
     # local app
     "authentication",
     "app_profile",
     "app_job",
     "app_backoffice",
+    "app_messaging",
+    "app_notification",
+    "app_escrow",
 ]
 
 MIDDLEWARE = [
@@ -65,6 +70,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
 ROOT_URLCONF = "jobhub_api.urls"
@@ -87,6 +93,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "jobhub_api.wsgi.application"
 
+ASGI_APPLICATION = "jobhub_api.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [config("REDIS_URL", default="redis://localhost:6379")],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -133,7 +149,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATICFILES_DIRS = []
+
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -183,8 +202,8 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = "david1anato@gmail.com"
-EMAIL_HOST_PASSWORD = "qypaxhrqfixwuocn"
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 
 AUTH_USER_MODEL = "authentication.User"
 
@@ -195,18 +214,10 @@ AUTHENTICATION_BACKENDS = [
 
 
 # GOOGLE AUTH
-GOOGLE_CLIENT_ID = (
-    "435871596858-5tvfi6mhvdr1i60ktgsjl67d6brclkl4.apps.googleusercontent.com"
-)
-GOOGLE_CLIENT_SECRET = "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"
-GOOGLE_REDIRECT_URI = "http://localhost:3000/"
-
-# Public Key
-# BFAhSZDrGQPAoL5dEcoOxvhBGfRU4aJCpIlT-o6cuCA11MMaBLbpod6WAAbK67ubBg53ylQJnseB1xSAyXznQCA
-
-# Private Key
-# BUi2UkpZaNCatLZFCkj53_YUeyR-hd-8RSTrKrDZDK4
-
+# import de la variable d'environnement
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", default="")
+GOOGLE_REDIRECT_URI = config("GOOGLE_REDIRECT_URI", default="")
 
 # SWAGGER_SETTINGS
 SWAGGER_SETTINGS = {
@@ -219,3 +230,27 @@ SWAGGER_SETTINGS = {
 # Media files configuration
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# STORAGES = {
+#     "staticfiles": {
+#         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+#     },
+# }
+
+# GetOurVoice Configuration
+OURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
+OURVOICE_APP_ID = config("GETOURVOICE_APP_ID", default="")
+
+# OTP inscription (désactiver l'envoi SMS en dev)
+OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=False, cast=bool)
+DEV_OTP_CODE = config("DEV_OTP_CODE", default="00000")
+
+# FedaPay Escrow (ne jamais committer les vraies clés)
+FEDAPAY_PUBLIC_KEY = config("FEDAPAY_PUBLIC_KEY", default="")
+FEDAPAY_SECRET_KEY = config("FEDAPAY_SECRET_KEY", default="")
+FEDAPAY_WEBHOOK_SECRET = config("FEDAPAY_WEBHOOK_SECRET", default="")
+FEDAPAY_ENVIRONMENT = config("FEDAPAY_ENVIRONMENT", default="sandbox")
+FEDAPAY_SKIP_WEBHOOK_SIGNATURE = config(
+    "FEDAPAY_SKIP_WEBHOOK_SIGNATURE", default=False, cast=bool
+)
+PUBLIC_API_BASE_URL = config("PUBLIC_API_BASE_URL", default="http://localhost:8000")
