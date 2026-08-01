@@ -35,6 +35,7 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "client",
             "title",
             "image",
+            "voice_note",
             "description",
             "responsability",
             "location",
@@ -49,7 +50,14 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "location_latitude",
             "location_longitude",
         ]
-        extra_kwargs = {"sub_category": {"write_only": True}}
+        extra_kwargs = {
+            "sub_category": {"write_only": True},
+            "description": {"required": False, "allow_blank": True},
+            "responsability": {"required": False, "allow_blank": True},
+            "voice_note": {"required": False},
+            "location_latitude": {"required": False},
+            "location_longitude": {"required": False},
+        }
 
     def validate_sub_category(self, value):
         if isinstance(value, int):
@@ -77,9 +85,27 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             "proposed_price",
             "frequency",
             "cover_letter",
+            "voice_note",
             "status",
             "applied_at",
         ]
+        extra_kwargs = {
+            "cover_letter": {"required": False, "allow_blank": True},
+            "voice_note": {"required": False},
+            "frequency": {"required": False, "allow_blank": True},
+        }
+
+    def validate(self, attrs):
+        cover = (attrs.get("cover_letter") or "").strip()
+        voice = attrs.get("voice_note")
+        # En update partiel, ne pas forcer
+        if self.instance is None and not cover and not voice:
+            raise serializers.ValidationError(
+                {
+                    "cover_letter": "Ajoute un message texte ou une note vocale.",
+                }
+            )
+        return attrs
 
 
 # Job Serializer

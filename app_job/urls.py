@@ -16,6 +16,8 @@ from .views import (
     JobOfferSuggestionListView,
     JobSearchView,
     MarkAsCompletedView,
+    WorkerJobStatisticsView,
+    WorkerMyApplicationsListView,
 )
 
 urlpatterns = [
@@ -70,6 +72,16 @@ urlpatterns = [
         "client-job-statistics/",
         ClientJobStatisticsView.as_view(),
         name="client-job-statistics",
+    ),
+    path(
+        "worker-job-statistics/",
+        WorkerJobStatisticsView.as_view(),
+        name="worker-job-statistics",
+    ),
+    path(
+        "my-applications/",
+        WorkerMyApplicationsListView.as_view(),
+        name="worker-my-applications",
     ),
     path(
         "ask-complete/<int:job_offer_id>/",

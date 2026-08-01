@@ -5,10 +5,16 @@ from .views import (
     MarkAllNotificationsAsReadAPIView,
     MarkNotificationAsReadAPIView,
     NotificationListAPIView,
+    NotificationStreamAPIView,
     NotificationTokenAPIView,
 )
 
 urlpatterns = [
+    path(
+        "stream/",
+        NotificationStreamAPIView.as_view(),
+        name="notification-stream",
+    ),
     path(
         "user-notifications/",
         NotificationListAPIView.as_view(),

@@ -41,6 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     reviews = ReviewSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -54,15 +55,45 @@ class UserSerializer(serializers.ModelSerializer):
             )
         return None
 
+    def get_profile_picture(self, obj):
+        if not obj.profile_picture:
+            return None
+        try:
+            url = obj.profile_picture.url
+        except (ValueError, AttributeError):
+            return None
+        from django.conf import settings
+
+        base = (getattr(settings, "PUBLIC_API_BASE_URL", None) or "").rstrip("/")
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+        if base:
+            if not url.startswith("/"):
+                url = f"/{url}"
+            return f"{base}{url}"
+        request = self.context.get("request")
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Serializer for registering a new user.
     """
 
+    profile_type = serializers.ChoiceField(
+        choices=[("worker", "Travailleur"), ("employer", "Client")],
+        write_only=True,
+    )
+
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "phone_number"]
+        fields = ["first_name", "last_name", "phone_number", "profile_type"]
+
+    def create(self, validated_data):
+        validated_data.pop("profile_type", None)
+        return User.objects.create(**validated_data)
 
 
 class PhoneNumberValidateRequestSerializer(serializers.Serializer):
@@ -247,5 +278,13 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             "notification_sms",
             "notification_push",
             "profile_visibility",
+            "show_phone_number",
+            "show_online_status",
+            "allow_messages",
+            "allow_calls",
+            "sound_enabled",
+            "haptics_enabled",
+            "marketing_notifications",
+            "language",
         ]
         read_only_fields = ["user"]

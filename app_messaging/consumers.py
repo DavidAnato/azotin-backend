@@ -32,7 +32,31 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         print(f"\033[92mNouvelle connexion au chat {self.conversation_id}\033[0m")
 
+        from .presence import presence_connect
+
+        await database_sync_to_async(presence_connect)(self.scope["user"].id)
+
+        # Messages de l'autre → "received" (livré) dès qu'on ouvre le chat
+        updated_ids = await self.mark_messages_as_received(
+            self.conversation_id, self.scope["user"].id
+        )
+        if updated_ids:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "message_status_update",
+                    "message_ids": updated_ids,
+                    "status": "received",
+                    "reader_id": self.scope["user"].id,
+                    "timestamp": timezone.now().isoformat(),
+                },
+            )
+
     async def disconnect(self, close_code):
+        from .presence import presence_disconnect
+
+        if not self.scope["user"].is_anonymous:
+            await database_sync_to_async(presence_disconnect)(self.scope["user"].id)
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         print(f"\033[93mDéconnexion du chat {self.conversation_id}\033[0m")
 
@@ -50,6 +74,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_edit_message(data)
             elif action_type == "delete":
                 await self.handle_delete_message(data)
+            elif action_type in ("typing", "typing_start", "typing_stop"):
+                await self.handle_typing(data)
 
         except json.JSONDecodeError as e:
             print(f"\033[91mErreur de format JSON: {str(e)}\033[0m")
@@ -59,6 +85,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"\033[91mErreur inattendue: {str(e)}\033[0m")
             await self.close()
 
+    async def handle_typing(self, data):
+        is_typing = data.get("type") != "typing_stop" and data.get("typing", True)
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "typing_update",
+                "user_id": self.scope["user"].id,
+                "typing": bool(is_typing),
+            },
+        )
     async def handle_new_message(self, data):
         print("\033[95m=== Nouveau message reçu ===\033[0m")
         print(f"\033[95mContenu du message: {data.get('message')}\033[0m")
@@ -112,6 +148,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender_id=self.scope["user"].id,
             files=processed_files,
             job_offer_id=data.get("job_offer_id"),
+            local_id=data.get("local_id"),
+            reply_to_id=data.get("reply_to_id"),
         )
 
         print("\033[95m=== Données du message sauvegardé ===\033[0m")
@@ -185,7 +223,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             f"\033[96mMarquage comme lu - Conversation: {conversation_id}, Utilisateur: {user_id}\033[0m"
         )
 
-        await self.mark_messages_as_read(conversation_id, user_id)
+        updated_ids = await self.mark_messages_as_read(conversation_id, user_id)
+
+        if updated_ids:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "message_status_update",
+                    "message_ids": updated_ids,
+                    "status": "read",
+                    "reader_id": user_id,
+                    "timestamp": timezone.now().isoformat(),
+                },
+            )
 
         conversation_participants = await self.get_conversation_participants()
         for participant_id in conversation_participants:
@@ -211,85 +261,141 @@ class ChatConsumer(AsyncWebsocketConsumer):
         old_content = await self.get_message_content(message_id)
         updated_message = await self.update_message(message_id, new_content, user_id)
 
-        if updated_message:
-            print("\033[92mMessage mis à jour avec succès\033[0m")
-            # Notify chat room participants about the edit
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    "type": "message_edited_update",
-                    "message_id": message_id,
-                    "content": new_content,
-                    "edited_at": updated_message.edited_at.isoformat(),
-                },
+        if not updated_message:
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "error": "edit_unavailable",
+                        "message_id": message_id,
+                    }
+                )
             )
+            return
 
-            # Check if this is the last message in the conversation
-            is_last = await self.is_last_message(message_id)
-            if is_last:
-                conversation_participants = await self.get_conversation_participants()
-                for participant_id in conversation_participants:
-                    unread_count = await self.get_unread_count(
-                        participant_id, self.conversation_id
-                    )
-                    await self.channel_layer.group_send(
-                        f"user_messages_{participant_id}",
-                        {
-                            "type": "message_update",
-                            "update_type": "message_edited",
-                            "conversation_id": self.conversation_id,
-                            "old_content": old_content,
-                            "content": new_content,
-                            "edited_at": updated_message.edited_at.isoformat(),
-                            "unread_count": unread_count,
-                        },
-                    )
+        print("\033[92mMessage mis à jour avec succès\033[0m")
+        # Notify chat room participants about the edit
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "message_edited_update",
+                "message_id": message_id,
+                "content": new_content,
+                "edited_at": updated_message.edited_at.isoformat(),
+            },
+        )
+
+        # Check if this is the last message in the conversation
+        is_last = await self.is_last_message(message_id)
+        if is_last:
+            conversation_participants = await self.get_conversation_participants()
+            for participant_id in conversation_participants:
+                unread_count = await self.get_unread_count(
+                    participant_id, self.conversation_id
+                )
+                await self.channel_layer.group_send(
+                    f"user_messages_{participant_id}",
+                    {
+                        "type": "message_update",
+                        "update_type": "message_edited",
+                        "conversation_id": self.conversation_id,
+                        "message_id": message_id,
+                        "old_content": old_content,
+                        "content": new_content,
+                        "edited_at": updated_message.edited_at.isoformat(),
+                        "unread_count": unread_count,
+                    },
+                )
 
     async def handle_delete_message(self, data):
         message_id = data["message_id"]
         user_id = self.scope["user"].id
+        scope = (data.get("scope") or "everyone").lower()
 
-        print(f"\033[96mSuppression du message {message_id} par {user_id}\033[0m")
+        print(
+            f"\033[96mSuppression message {message_id} par {user_id} scope={scope}\033[0m"
+        )
 
-        # Check if it's the last message before deleting
-        is_last = await self.is_last_message(message_id)
-        new_last_message = None
+        if scope == "me":
+            ok = await self.hide_message_for_me(message_id, user_id)
+            if ok:
+                await self.send(
+                    text_data=json.dumps(
+                        {
+                            "type": "message_hidden",
+                            "message_id": message_id,
+                            "scope": "me",
+                        }
+                    )
+                )
+            return
 
-        if is_last:
-            # Get the previous message before deletion
-            new_last_message = await self.get_previous_message(message_id)
+        result = await self.delete_message_for_everyone(message_id, user_id)
+        if not result:
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "error": "delete_for_everyone_unavailable",
+                        "message_id": message_id,
+                    }
+                )
+            )
+            return
 
-        if await self.delete_message(message_id, user_id):
-            print("\033[92mMessage supprimé avec succès\033[0m")
-            # Notify chat room participants about the deletion
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "message_deleted_for_everyone_event",
+                "message_id": message_id,
+                "conversation_id": int(self.conversation_id),
+                "deleted_by": user_id,
+            },
+        )
+
+        conversation_participants = await self.get_conversation_participants()
+        for participant_id in conversation_participants:
             await self.channel_layer.group_send(
-                self.room_group_name,
-                {"type": "message_deleted_update", "message_id": message_id},
+                f"user_messages_{participant_id}",
+                {
+                    "type": "message_update",
+                    "update_type": "message_deleted_for_everyone",
+                    "conversation_id": self.conversation_id,
+                    "message_id": message_id,
+                },
             )
 
-            if is_last:
-                conversation_participants = await self.get_conversation_participants()
-                for participant_id in conversation_participants:
-                    unread_count = await self.get_unread_count(
-                        participant_id, self.conversation_id
-                    )
-                    message_data = {
-                        "type": "message_update",
-                        "update_type": "message_deleted",
-                        "conversation_id": self.conversation_id,
-                        "message_id": message_id,
-                        "unread_count": unread_count,
-                    }
+    async def message_deleted_for_everyone_event(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "message_deleted_for_everyone",
+                    "message_id": event["message_id"],
+                    "conversation_id": event.get("conversation_id"),
+                    "deleted_by": event.get("deleted_by"),
+                }
+            )
+        )
 
-                    if new_last_message:
-                        message_data["new_last_message"] = {
-                            "content": new_last_message.content,
-                            "timestamp": new_last_message.timestamp.isoformat(),
-                        }
+    async def message_restored_event(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "message_restored",
+                    "message_id": event["message_id"],
+                    "conversation_id": event.get("conversation_id"),
+                    "message": event.get("message"),
+                }
+            )
+        )
 
-                    await self.channel_layer.group_send(
-                        f"user_messages_{participant_id}", message_data
-                    )
+    async def message_deleted_update(self, event):
+        # Legacy hard-delete broadcast
+        await self.send(
+            text_data=json.dumps(
+                {"type": "message_deleted", "message_id": event["message_id"]}
+            )
+        )
 
     async def chat_message(self, event):
         print("\033[95m=== Message reçu pour diffusion ===\033[0m")
@@ -302,6 +408,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"\033[95mDonnées à envoyer: {json.dumps(message_data, indent=2)}\033[0m")
 
         await self.send(text_data=json.dumps({"type": message_type, **message_data}))
+
+    async def typing_update(self, event):
+        # Ne pas renvoyer son propre typing
+        if event.get("user_id") == self.scope["user"].id:
+            return
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "typing",
+                    "user_id": event["user_id"],
+                    "typing": event.get("typing", True),
+                }
+            )
+        )
+
+    async def message_status_update(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "message_status",
+                    "message_ids": event.get("message_ids", []),
+                    "status": event.get("status"),
+                    "reader_id": event.get("reader_id"),
+                    "timestamp": event.get("timestamp"),
+                }
+            )
+        )
+
+    async def presence_update_event(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "presence",
+                    "user_id": event.get("user_id"),
+                    "online": event.get("online"),
+                }
+            )
+        )
 
     async def messages_read_update(self, event):
         print("\033[94mEnvoi de la mise à jour de lecture\033[0m")
@@ -328,25 +472,36 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
         )
 
-    async def message_deleted_update(self, event):
-        print("\033[94mEnvoi de la mise à jour de suppression\033[0m")
-        await self.send(
-            text_data=json.dumps(
-                {"type": "message_deleted", "message_id": event["message_id"]}
-            )
-        )
-
     @database_sync_to_async
-    def save_message(self, content=None, sender_id=None, files=None, job_offer_id=None):
+    def save_message(
+        self,
+        content=None,
+        sender_id=None,
+        files=None,
+        job_offer_id=None,
+        local_id=None,
+        reply_to_id=None,
+    ):
         try:
             print("\033[94m=== Sauvegarde du message et des médias ===\033[0m")
             conversation = Conversation.objects.get(id=self.conversation_id)
+
+            reply_to = None
+            if reply_to_id not in (None, "", "null", "undefined"):
+                try:
+                    reply_to = Message.objects.filter(
+                        id=int(reply_to_id), conversation=conversation
+                    ).first()
+                except (TypeError, ValueError):
+                    reply_to = None
+
             message = Message.objects.create(
                 conversation=conversation,
                 sender_id=sender_id,
                 content=content,
                 job_offer_id=job_offer_id,
                 status="sent",
+                reply_to=reply_to,
             )
             print(f"\033[94mMessage créé avec l'ID: {message.id}\033[0m")
 
@@ -357,21 +512,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         f"\033[94mCréation du MessageMedia pour le fichier: {file.name}\033[0m"
                     )
                     media = MessageMedia.objects.create(message=message, file=file)
+                    name = media.file.name.split("/")[-1] if media.file else ""
                     media_data.append(
                         {
                             "id": media.id,
                             "file": media.file.url if media.file else None,
                             "message": media.message.id,
+                            "name": name,
+                            "type": self._guess_mime_sync(name),
                         }
                     )
                     print(
                         f"\033[92mMessageMedia créé avec succès - URL: {media.file.url}\033[0m"
                     )
 
-            # Créer un dictionnaire avec les données du message au format JSON-compatible
+            reply_to_summary = None
+            if message.reply_to_id:
+                parent = message.reply_to
+                sender = parent.sender
+                sender_name = (
+                    f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+                    or getattr(sender, "username", "")
+                    or str(sender.id)
+                )
+                reply_to_summary = {
+                    "id": parent.id,
+                    "content": None if parent.deleted_for_everyone else parent.content,
+                    "sender": {"id": sender.id, "name": sender_name},
+                    "has_media": parent.medias.exists()
+                    and not parent.deleted_for_everyone,
+                }
+
             message_data = {
                 "id": message.id,
                 "sender": sender_id,
+                "sender_id": sender_id,
                 "content": content,
                 "medias": media_data,
                 "timestamp": message.timestamp.isoformat(),
@@ -380,7 +555,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     message.edited_at.isoformat() if message.edited_at else None
                 ),
                 "read_at": message.read_at.isoformat() if message.read_at else None,
-                "job_offer": None,  # Initialisation à None
+                "job_offer": None,
+                "local_id": local_id,
+                "reply_to": reply_to_summary,
+                "reply_to_id": message.reply_to_id,
             }
 
             print("\033[95m=== Données du message sauvegardé ===\033[0m")
@@ -394,6 +572,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"\033[91mErreur lors de la sauvegarde: {str(e)}\033[0m")
             raise
 
+    @staticmethod
+    def _guess_mime_sync(filename: str) -> str:
+        lower = (filename or "").lower()
+        if lower.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic")):
+            return "image/jpeg"
+        if lower.endswith((".mp4", ".mov", ".avi", ".webm", ".m4v")):
+            return "video/mp4"
+        if lower.endswith((".mp3", ".wav", ".ogg", ".m4a", ".aac")):
+            return "audio/m4a"
+        if lower.endswith(".pdf"):
+            return "application/pdf"
+        return "application/octet-stream"
     @database_sync_to_async
     def get_job_offer_data(self, job_offer_id):
         from app_job.models import JobOffer
@@ -416,41 +606,90 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def mark_messages_as_read(self, conversation_id, user_id):
-        # Récupérer les messages à marquer comme lus
         messages = Message.objects.filter(
             conversation_id=conversation_id, status__in=["sent", "received"]
         ).exclude(sender_id=user_id)
 
-        # Mettre à jour chaque message individuellement pour déclencher le signal
+        ids = list(messages.values_list("id", flat=True))
+        now = timezone.now()
         for message in messages:
             message.status = "read"
-            message.read_at = timezone.now()
-            message.save()  # Ceci déclenchera le signal pour chaque message
+            message.read_at = now
+            message.save()
+
+        from .models import ConversationMemberState
+
+        ConversationMemberState.objects.filter(
+            conversation_id=conversation_id, user_id=user_id
+        ).update(marked_unread=False)
+        return ids
 
     @database_sync_to_async
+    def mark_messages_as_received(self, conversation_id, user_id):
+        messages = Message.objects.filter(
+            conversation_id=conversation_id, status="sent"
+        ).exclude(sender_id=user_id)
+
+        ids = list(messages.values_list("id", flat=True))
+        for message in messages:
+            message.status = "received"
+            message.save(update_fields=["status"])
+        return ids
+    @database_sync_to_async
     def update_message(self, message_id, new_content, user_id):
+        from django.contrib.auth import get_user_model
+
+        from .message_visibility import can_edit
+
+        User = get_user_model()
         try:
             message = Message.objects.get(
                 id=message_id, sender_id=user_id, conversation_id=self.conversation_id
             )
+            user = User.objects.get(id=user_id)
+            if not can_edit(message, user):
+                print(
+                    f"\033[91mÉdition refusée pour message {message_id} (fenêtre ou droits)\033[0m"
+                )
+                return None
             message.content = new_content
             message.edited_at = timezone.now()
-            message.save()
+            message.save(update_fields=["content", "edited_at"])
             return message
         except Message.DoesNotExist:
             print(f"\033[91mErreur: Message {message_id} non trouvé\033[0m")
             return None
 
     @database_sync_to_async
-    def delete_message(self, message_id, user_id):
+    def hide_message_for_me(self, message_id, user_id):
         try:
             message = Message.objects.get(
-                id=message_id, sender_id=user_id, conversation_id=self.conversation_id
+                id=message_id, conversation_id=self.conversation_id
             )
-            message.delete()
+            if not message.conversation.participants.filter(id=user_id).exists():
+                return False
+            message.hidden_for.add(user_id)
             return True
         except Message.DoesNotExist:
-            print(f"\033[91mErreur: Message {message_id} non trouvé\033[0m")
+            return False
+
+    @database_sync_to_async
+    def delete_message_for_everyone(self, message_id, user_id):
+        from django.contrib.auth import get_user_model
+
+        from .message_visibility import can_delete_for_everyone, mark_deleted_for_everyone
+
+        User = get_user_model()
+        try:
+            message = Message.objects.get(
+                id=message_id, conversation_id=self.conversation_id
+            )
+            user = User.objects.get(id=user_id)
+            if not can_delete_for_everyone(message, user):
+                return False
+            mark_deleted_for_everyone(message)
+            return True
+        except Message.DoesNotExist:
             return False
 
     @database_sync_to_async
@@ -538,8 +777,27 @@ class MessageListConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.user_group_name, self.channel_name)
         await self.accept()
 
+        from .presence import presence_connect
+
+        await database_sync_to_async(presence_connect)(self.user.id)
+
     async def disconnect(self, close_code):
+        from .presence import presence_disconnect
+
+        if hasattr(self, "user") and not self.user.is_anonymous:
+            await database_sync_to_async(presence_disconnect)(self.user.id)
         await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+
+    async def presence_update_event(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "presence",
+                    "user_id": event.get("user_id"),
+                    "online": event.get("online"),
+                }
+            )
+        )
 
     async def message_update(self, event):
         print("\033[95m=== Mise à jour de message reçue ===\033[0m")
@@ -608,6 +866,17 @@ class MessageListConsumer(AsyncWebsocketConsumer):
 
             await self.send(text_data=json.dumps(response_data))
 
+        elif update_type == "message_deleted_for_everyone":
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "message_deleted_for_everyone",
+                        "conversation_id": event["conversation_id"],
+                        "message_id": event["message_id"],
+                    }
+                )
+            )
+
 
 class UnreadMessageStatusConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -621,11 +890,19 @@ class UnreadMessageStatusConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.user_group_name, self.channel_name)
         await self.accept()
 
+        from .presence import presence_connect
+
+        await database_sync_to_async(presence_connect)(self.user.id)
+
         # Vérifier l'état initial des messages non lus
         has_unread = await self.check_unread_messages()
         await self.send_status_update(has_unread)
 
     async def disconnect(self, close_code):
+        from .presence import presence_disconnect
+
+        if hasattr(self, "user") and not self.user.is_anonymous:
+            await database_sync_to_async(presence_disconnect)(self.user.id)
         if hasattr(self, "user_group_name"):
             await self.channel_layer.group_discard(
                 self.user_group_name, self.channel_name

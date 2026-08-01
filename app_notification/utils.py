@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Optional, Tuple
 
 import aiohttp
@@ -9,30 +10,46 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
 
 from .models import UserNotification
+from .sse import publish_notification_sse
+
+logger = logging.getLogger(__name__)
 
 
-def create_user_notification(recipient, message, object=None):
-    """
-    Crée une notification et l'envoie en temps réel via WebSocket
-    """
-    # Créer la notification dans la base de données
-    notification = UserNotification.objects.create(
-        recipient=recipient, message=message, object=object
-    )
-
-    # Préparer les données de la notification
-    notification_data = {
+def _notification_payload(notification: UserNotification) -> dict:
+    meta = notification.object if isinstance(notification.object, dict) else {}
+    kind = meta.get("type", "general")
+    return {
         "id": notification.id,
         "message": notification.message,
         "object": notification.object,
         "created_at": notification.created_at.isoformat(),
+        "is_read": notification.is_read,
+        "kind": kind,
     }
 
-    # Envoyer la notification via WebSocket
+
+def create_user_notification(recipient, message, object=None):
+    """
+    Crée une notification et la diffuse (WebSocket, SSE, statut).
+    """
+    notification = UserNotification.objects.create(
+        recipient=recipient, message=message, object=object
+    )
+
+    notification_data = _notification_payload(notification)
+
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f"notifications_{recipient.id}",
-        {"type": "notification", "notification": notification_data},
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"notifications_{recipient.id}",
+            {"type": "notification", "notification": notification_data},
+        )
+    except Exception as exc:
+        logger.warning("WebSocket group_send ignoré (%s)", exc)
+
+    publish_notification_sse(
+        recipient.id,
+        {"type": "user_notification", "notification": notification_data},
     )
 
     return notification
@@ -127,6 +144,45 @@ async def send_sms_async(
         return False, {"error": f"Erreur lors de l'envoi du SMS : {str(e)}"}
 
 
+def send_sms_if_configured(phone_number: str, message: str) -> None:
+    """Envoie un SMS seulement si OURVOICE_API_KEY est configurée (sinon noop en dev)."""
+    api_key = getattr(settings, "OURVOICE_API_KEY", "") or ""
+    if not api_key or not phone_number or not message:
+        return
+    sender_id = getattr(settings, "OURVOICE_APP_ID", "") or None
+    sender_name = None if sender_id else "AZOTIN"
+    async_to_sync(send_sms_async)(
+        phone_number,
+        message,
+        api_key,
+        sender_id=sender_id,
+        sender_name=sender_name,
+    )
+
+
+def _email_can_send() -> bool:
+    backend = str(getattr(settings, "EMAIL_BACKEND", ""))
+    if "console" in backend or "locmem" in backend:
+        return True
+    user = getattr(settings, "EMAIL_HOST_USER", "") or ""
+    password = getattr(settings, "EMAIL_HOST_PASSWORD", "") or ""
+    return bool(user and password)
+
+
+def send_email_if_configured(
+    email: str, message: str, subject: str = "Notification"
+) -> None:
+    """N'échoue jamais la requête API (SMTP optionnel en dev)."""
+    if not email or not message:
+        return
+    if not _email_can_send():
+        return
+    try:
+        async_to_sync(send_email_async)(email, message, subject)
+    except Exception as exc:
+        logger.warning("Email non envoye vers %s: %s", email, exc)
+
+
 @sync_to_async
 def send_email_async(email: str, message: str, subject: str = "Notification") -> None:
     if not email:
@@ -172,10 +228,11 @@ def send_email_async(email: str, message: str, subject: str = "Notification") ->
 
     text_content = strip_tags(html_content)
 
+    from_email = settings.EMAIL_HOST_USER or "noreply@azotin.local"
     email_message = EmailMultiAlternatives(
         subject=subject,
         body=text_content,
-        from_email=settings.EMAIL_HOST_USER,
+        from_email=from_email,
         to=[email],
     )
     email_message.attach_alternative(html_content, "text/html")

@@ -1,6 +1,7 @@
 # from math import atan2, cos, radians, sin, sqrt
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from django.forms import ValidationError
 from rest_framework import generics, status
@@ -275,16 +276,19 @@ class JobApplicationListCreateView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
-        worker_profile = WorkerProfile.objects.get(user=self.request.user)
         job_offer = JobOffer.objects.get(id=self.kwargs["job_offer_id"])
         if job_offer.is_filled:
-            raise PermissionDenied("This job offer is already filled.")
-        if not WorkerProfile.objects.filter(user=self.request.user).exists():
-            raise PermissionDenied("You are not allowed to apply to this job.")
+            raise PermissionDenied("Cette offre est déjà pourvue.")
+        try:
+            worker_profile = WorkerProfile.objects.get(user=self.request.user)
+        except WorkerProfile.DoesNotExist:
+            raise PermissionDenied(
+                "Seuls les travailleurs peuvent postuler à une offre."
+            )
         if JobApplication.objects.filter(
             worker=worker_profile, job_offer=job_offer
         ).exists():
-            raise PermissionDenied("You have already applied to this job.")
+            raise PermissionDenied("Vous avez déjà postulé à cette offre.")
         serializer.save(worker=worker_profile, job_offer=job_offer)
 
 
@@ -325,16 +329,34 @@ class JobCreateView(APIView):
         job_application.job_offer.is_filled = True
         job_application.job_offer.save()
 
-        # Create the Job instance
-        job = Job.objects.create(
-            job_offer=job_application.job_offer,
-            client=job_application.job_offer.client,
-            worker=job_application.worker,
-            description=job_application.job_offer.description,
-            location=job_application.job_offer.location,
-            price=job_application.proposed_price,
-            frequency=job_application.job_offer.frequency,
-        )
+        offer = job_application.job_offer
+        title = (offer.title or "").strip() or f"Mission — offre #{offer.pk}"
+
+        with transaction.atomic():
+            job = Job.objects.create(
+                job_offer=offer,
+                client=offer.client,
+                worker=job_application.worker,
+                description=offer.description,
+                location=offer.location,
+                price=job_application.proposed_price,
+                frequency=offer.frequency,
+            )
+
+            # Contrat escrow lié au job (créé à l'acceptation du candidat)
+            from app_escrow.models import Contract, ContractStatus
+
+            Contract.objects.create(
+                client=request.user,
+                freelancer=job_application.worker.user,
+                job_offer=offer,
+                job=job,
+                title=title,
+                description=offer.description or title,
+                amount=job_application.proposed_price,
+                currency="XOF",
+                status=ContractStatus.ACCEPTED,
+            )
 
         serializer = JobSerializer(job)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -648,13 +670,18 @@ class JobSearchView(generics.ListAPIView):
 
     @staticmethod
     def convert_price(price, from_frequency, to_frequency):
+        if from_frequency == "fixed" or to_frequency == "fixed":
+            return price
         conversion_rates = {
             "hour": {"hour": 1, "day": 8, "week": 40, "month": 160},
             "day": {"hour": 1 / 8, "day": 1, "week": 5, "month": 20},
             "week": {"hour": 1 / 40, "day": 1 / 5, "week": 1, "month": 4},
             "month": {"hour": 1 / 160, "day": 1 / 20, "week": 1 / 4, "month": 1},
         }
-        return price * conversion_rates[from_frequency][to_frequency]
+        try:
+            return price * conversion_rates[from_frequency][to_frequency]
+        except KeyError:
+            return price
 
 
 # JobFavorite Toggle
@@ -726,6 +753,77 @@ class ClientJobStatisticsView(APIView):
                 {"error": f"Une erreur est survenue : {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class WorkerJobStatisticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            if not hasattr(request.user, "worker_profile"):
+                return Response(
+                    {"error": "Profil travailleur non trouvé"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            worker_profile = request.user.worker_profile
+            jobs_in_progress = Job.objects.filter(
+                worker=worker_profile, completed=False
+            ).count()
+            jobs_completed = Job.objects.filter(
+                worker=worker_profile, completed=True
+            ).count()
+            applications_pending = JobApplication.objects.filter(
+                worker=worker_profile, status="pending"
+            ).count()
+            favorites = JobFavorite.objects.filter(user=request.user).count()
+
+            return Response(
+                {
+                    "jobs_in_progress": jobs_in_progress,
+                    "jobs_completed": jobs_completed,
+                    "applications_pending": applications_pending,
+                    "favorites": favorites,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Une erreur est survenue : {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class WorkerMyApplicationsListView(generics.ListAPIView):
+    """Candidatures du travailleur (offres postulées, pas encore de mission)."""
+
+    serializer_class = JobApplicationSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = JobPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        if not hasattr(user, "worker_profile"):
+            return JobApplication.objects.none()
+
+        qs = (
+            JobApplication.objects.filter(worker=user.worker_profile)
+            .select_related(
+                "job_offer",
+                "job_offer__category",
+                "job_offer__sub_category",
+                "job_offer__client",
+                "job_offer__client__user",
+            )
+            .order_by("-applied_at")
+        )
+
+        # Par défaut : en attente (pas encore acceptée / devenue job)
+        status_param = self.request.query_params.get("status", "pending")
+        if status_param and status_param != "all":
+            qs = qs.filter(status=status_param)
+        return qs
+
 
 
 class AskToMarkAsCompletedView(APIView):

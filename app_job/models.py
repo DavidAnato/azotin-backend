@@ -51,8 +51,14 @@ class JobOffer(models.Model):
     )
     title = models.CharField(max_length=255)
     image = models.ImageField(upload_to="job_offers/", null=True, blank=True)
-    description = models.TextField()
-    responsability = models.TextField()
+    voice_note = models.FileField(
+        upload_to="job_offers/voice/",
+        null=True,
+        blank=True,
+        help_text="Note vocale décrivant la mission (alternative au texte).",
+    )
+    description = models.TextField(blank=True, default="")
+    responsability = models.TextField(blank=True, default="")
     location = models.CharField(max_length=255)
     price = models.DecimalField(
         max_digits=9, decimal_places=0, help_text="Minimum price for the job."
@@ -65,6 +71,7 @@ class JobOffer(models.Model):
             ("day", "Day"),
             ("week", "Week"),
             ("month", "Month"),
+            ("fixed", "Fixed / forfait"),
         ],
         help_text="Frequency of the job.",
     )
@@ -148,11 +155,18 @@ class JobApplication(models.Model):
             ("day", "Day"),
             ("week", "Week"),
             ("month", "Month"),
+            ("fixed", "Fixed / forfait"),
         ],
         help_text="Frequency of the job.",
     )
     cover_letter = models.TextField(
         blank=True, help_text="Optional cover letter by the worker."
+    )
+    voice_note = models.FileField(
+        upload_to="job_applications/voice/",
+        null=True,
+        blank=True,
+        help_text="Note vocale de candidature (alternative au texte).",
     )
     status = models.CharField(
         max_length=20,
@@ -201,6 +215,7 @@ class Job(models.Model):
             ("day", "Day"),
             ("week", "Week"),
             ("month", "Month"),
+            ("fixed", "Fixed / forfait"),
         ],
         help_text="Frequency of the job.",
     )

@@ -72,7 +72,7 @@ class WorkerProfileDetailView(APIView):
                 {"error": "User not found."}, status=status.HTTP_404_NOT_FOUND
             )
 
-        user_data = UserSerializer(user).data
+        user_data = UserSerializer(user, context={"request": request}).data
 
         if hasattr(user, "worker_profile"):
             worker_profile = WorkerProfileSerializer(user.worker_profile).data
@@ -117,7 +117,7 @@ class UpdateWorkerProfileView(APIView):
     def patch(self, request, *args, **kwargs):
         user = request.user
         # Mise à jour partielle des données du modèle User
-        user_serializer = UserSerializer(user, data=request.data, partial=True)
+        user_serializer = UserSerializer(user, data=request.data, partial=True, context={"request": request})
         if user_serializer.is_valid():
             user_serializer.save()
         else:
@@ -148,14 +148,15 @@ class UpdateWorkerProfileView(APIView):
                         photo_serializer.errors, status=status.HTTP_400_BAD_REQUEST
                     )
 
-        user_data = self.enrich_user_data(user)
+        user_data = self.enrich_user_data(user, request)
         return Response(
             {"message": "Profile updated successfully.", "user": user_data},
             status=status.HTTP_200_OK,
         )
 
-    def enrich_user_data(self, user):
-        user_data = UserSerializer(user).data
+    def enrich_user_data(self, user, request=None):
+        context = {"request": request} if request is not None else {}
+        user_data = UserSerializer(user, context=context).data
         try:
             settings = UserSettings.objects.get(user=user)
             user_data["settings"] = UserSettingsSerializer(settings).data
@@ -188,7 +189,9 @@ class UpdateClientProfileView(APIView):
     def patch(self, request, *args, **kwargs):
         user = request.user
         # Mise à jour partielle des données du modèle User
-        user_serializer = UserSerializer(user, data=request.data, partial=True)
+        user_serializer = UserSerializer(
+            user, data=request.data, partial=True, context={"request": request}
+        )
         if user_serializer.is_valid():
             user_serializer.save()
         else:
@@ -206,14 +209,15 @@ class UpdateClientProfileView(APIView):
                 client_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
 
-        user_data = self.enrich_user_data(user)
+        user_data = self.enrich_user_data(user, request)
         return Response(
             {"message": "Profile updated successfully.", "user": user_data},
             status=status.HTTP_200_OK,
         )
 
-    def enrich_user_data(self, user):
-        user_data = UserSerializer(user).data
+    def enrich_user_data(self, user, request=None):
+        context = {"request": request} if request is not None else {}
+        user_data = UserSerializer(user, context=context).data
         try:
             settings = UserSettings.objects.get(user=user)
             user_data["settings"] = UserSettingsSerializer(settings).data
