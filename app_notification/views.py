@@ -70,18 +70,33 @@ class NotificationTokenAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        token = request.data.get("token")
+        token = (request.data.get("token") or "").strip()
+        if not token:
+            return Response(
+                {"error": "token requis"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if not token.startswith("ExponentPushToken["):
+            return Response(
+                {"error": "token Expo invalide"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Vérifier si le token existe déjà
-        existing_token = NotificationToken.objects.filter(token=token).first()
-        if existing_token:
-            serializer = NotificationTokenSerializer(existing_token)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        serializer = NotificationTokenSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(user=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        qs = NotificationToken.objects.filter(token=token)
+        obj = qs.order_by("id").first()
+        if obj is None:
+            obj = NotificationToken.objects.create(user=request.user, token=token)
+            created = True
+        else:
+            qs.exclude(pk=obj.pk).delete()
+            if obj.user_id != request.user.id:
+                obj.user = request.user
+                obj.save(update_fields=["user"])
+            created = False
+        serializer = NotificationTokenSerializer(obj)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
 class DeleteNotificationTokenAPIView(APIView):

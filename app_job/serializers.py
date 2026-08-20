@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 
+from jobhub_api.ai_sanitize import sanitize_ai_text
+
 from .models import Category, Job, JobApplication, JobOffer, PaidService, SubCategory
 
 
@@ -63,6 +65,22 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "is_urgent": {"required": False},
         }
 
+    def validate_title(self, value):
+        return sanitize_ai_text(value) if isinstance(value, str) else value
+
+    def validate_description(self, value):
+        return sanitize_ai_text(value) if isinstance(value, str) else value
+
+    def validate_responsability(self, value):
+        return sanitize_ai_text(value) if isinstance(value, str) else value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for key in ("title", "description", "responsability"):
+            if isinstance(data.get(key), str):
+                data[key] = sanitize_ai_text(data[key])
+        return data
+
     def validate_sub_category(self, value):
         if isinstance(value, int):
             try:
@@ -98,6 +116,15 @@ class JobApplicationSerializer(serializers.ModelSerializer):
             "voice_note": {"required": False},
             "frequency": {"required": False, "allow_blank": True},
         }
+
+    def validate_cover_letter(self, value):
+        return sanitize_ai_text(value) if isinstance(value, str) else value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if isinstance(data.get("cover_letter"), str):
+            data["cover_letter"] = sanitize_ai_text(data["cover_letter"])
+        return data
 
     def validate(self, attrs):
         cover = (attrs.get("cover_letter") or "").strip()

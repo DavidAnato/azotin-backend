@@ -48,7 +48,7 @@ else:
 
     connection_created.connect(_sqlite_optimize)
 
-# Sans identifiants Gmail : pas d'envoi SMTP (évite 500 sur acceptation candidature)
+# Sans identifiants SMTP : console (évite 500 en local si EMAIL_HOST n'est pas prêt)
 if not config("EMAIL_HOST_USER", default="") or not config(
     "EMAIL_HOST_PASSWORD", default=""
 ):

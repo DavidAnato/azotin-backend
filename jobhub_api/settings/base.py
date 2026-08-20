@@ -198,16 +198,31 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# send email (SMTP configurable — pas uniquement Gmail)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
+# SMTP — hôte via EMAIL_HOST (Gmail, Mailgun, SES, OVH, etc.)
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = config("EMAIL_HOST", default="")
 EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
-EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=not EMAIL_USE_SSL, cast=bool)
+if EMAIL_USE_SSL:
+    EMAIL_USE_TLS = False
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=10, cast=int)
 DEFAULT_FROM_EMAIL = config(
     "DEFAULT_FROM_EMAIL",
     default=EMAIL_HOST_USER or "Azotin <noreply@azotin.local>",
+)
+SERVER_EMAIL = config("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
+
+# Front pour la redirection après clic sur le lien d'activation
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+FRONTEND_ACTIVATION_SUCCESS_PATH = config(
+    "FRONTEND_ACTIVATION_SUCCESS_PATH",
+    default="/activation-success",
 )
 
 AUTH_USER_MODEL = "authentication.User"
@@ -242,9 +257,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 #     },
 # }
 
-# GetOurVoice Configuration (OTP : clé API uniquement)
+# GetOurVoice OTP : uniquement GETOURVOICE_API_KEY (pas d'APP_ID)
 GETOURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
-OURVOICE_API_KEY = GETOURVOICE_API_KEY
+OURVOICE_API_KEY = GETOURVOICE_API_KEY  # alias interne (notifications SMS)
 
 # OTP inscription (désactiver l'envoi SMS en dev)
 OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=False, cast=bool)

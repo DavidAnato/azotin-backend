@@ -1,26 +1,19 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-import asyncio
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from app_notification.models import NotificationToken
 from app_notification.prefs import get_notification_settings, user_wants_message_notification
-from app_notification.utils import create_user_notification, send_push_notification
+from app_notification.utils import (
+    create_user_notification,
+    send_push_notification,
+    run_coroutine_sync,
+)
 
 from .member_utils import clear_inbox_flags
 from .models import ConversationMemberState, Message
-
-
-def run_async(coroutine):
-    """Exécute une coroutine de manière synchrone"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coroutine)
 
 
 @receiver([post_save], sender=Message)
@@ -90,7 +83,7 @@ def handle_message_update(sender, instance, created, **kwargs):
             tokens = NotificationToken.objects.filter(user=participant)
             push_body = preview
             for token in tokens:
-                run_async(
+                run_coroutine_sync(
                     send_push_notification(
                         token=token.token,
                         title=f"Message de {instance.sender.first_name}",

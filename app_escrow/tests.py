@@ -143,7 +143,58 @@ class ContractFlowTests(APITestCase):
         self.assertEqual(res.status_code, 200, res.data)
         self.assertTrue(res.data["pending_confirmation"])
         self.assertFalse(res.data["is_error"])
+        self.assertFalse(res.data["funded"])
         self.assertEqual(res.data["contract_status"], ContractStatus.WAITING_PAYMENT)
+
+    def test_payment_status_waiting_declined_is_still_polling(self):
+        """Un declined local pendant WAITING_PAYMENT n'est pas une erreur UI."""
+        contract = Contract.objects.create(
+            client=self.client_user,
+            freelancer=self.freelancer,
+            title="Job",
+            description="Desc",
+            amount=10000,
+            status=ContractStatus.WAITING_PAYMENT,
+        )
+        Payment.objects.create(
+            contract=contract,
+            fedapay_transaction_id="seed-tx",
+            amount=10000,
+            status=PaymentStatus.DECLINED,
+        )
+        self.api.force_authenticate(self.client_user)
+        res = self.api.get(f"/contracts/{contract.id}/payment-status/")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(res.data["pending_confirmation"])
+        self.assertFalse(res.data["is_error"])
+
+    @patch("app_escrow.views.fedapay_service")
+    def test_payment_status_recovers_when_fedapay_paid(self, mock_feda):
+        mock_feda.verify_payment.return_value = {
+            "is_paid": True,
+            "status": "approved",
+            "transaction": {"id": 479542, "status": "approved"},
+        }
+        contract = Contract.objects.create(
+            client=self.client_user,
+            freelancer=self.freelancer,
+            title="Job",
+            description="Desc",
+            amount=10000,
+            status=ContractStatus.WAITING_PAYMENT,
+        )
+        Payment.objects.create(
+            contract=contract,
+            fedapay_transaction_id="479542",
+            amount=10000,
+            status=PaymentStatus.PENDING,
+        )
+        self.api.force_authenticate(self.client_user)
+        res = self.api.get(f"/contracts/{contract.id}/payment-status/")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(res.data["funded"])
+        self.assertFalse(res.data["is_error"])
+        self.assertFalse(res.data["pending_confirmation"])
 
     def test_fund_already_working_returns_success(self):
         contract = Contract.objects.create(
@@ -305,6 +356,23 @@ class WalletTests(APITestCase):
         )
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.data.get("code"), "pin_required")
+
+    def test_withdraw_invalid_pin(self):
+        wallet, _ = Wallet.objects.get_or_create(owner=self.freelancer)
+        wallet.balance = Decimal("8000")
+        wallet.save()
+        self.freelancer.code_pin = "1234"
+        self.freelancer.save(update_fields=["code_pin"])
+        self.api.force_authenticate(self.freelancer)
+        res = self.api.post(
+            "/wallet/withdraw/",
+            {"amount": 1000, "phone_number": "22961000022", "code_pin": "9999"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data.get("code"), "invalid_pin")
+        wallet.refresh_from_db()
+        self.assertEqual(wallet.balance, Decimal("8000"))
 
 
 class FedaPayPayoutModeTests(TestCase):

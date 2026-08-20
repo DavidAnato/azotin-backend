@@ -1,7 +1,14 @@
+import logging
+from urllib.parse import urlencode
+
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.html import strip_tags
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 
 def _from_email():
@@ -10,6 +17,47 @@ def _from_email():
         or getattr(settings, "EMAIL_HOST_USER", None)
         or "Azotin <noreply@azotin.local>"
     )
+
+
+def frontend_activation_success_url():
+    base = (
+        getattr(settings, "FRONTEND_URL", None) or "http://localhost:3000"
+    ).rstrip("/")
+    path = (
+        getattr(settings, "FRONTEND_ACTIVATION_SUCCESS_PATH", None)
+        or "/activation-success"
+    )
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return f"{base}{path}"
+
+
+def build_activation_link(request, email, otp_code):
+    query = urlencode({"otp_code": otp_code, "email": email})
+    path = reverse("email-activate")
+    public = (getattr(settings, "PUBLIC_API_BASE_URL", None) or "").rstrip("/")
+    if public:
+        return f"{public}{path}?{query}"
+    if request is not None:
+        return request.build_absolute_uri(f"{path}?{query}")
+    return f"{path}?{query}"
+
+
+def _send_html_email(subject, recipient, html_content, text_content=None):
+    if not recipient:
+        logger.warning("Envoi email ignoré : destinataire vide (%s)", subject)
+        return False
+    body = text_content or strip_tags(html_content)
+    message = EmailMultiAlternatives(
+        subject, body, from_email=_from_email(), to=[recipient]
+    )
+    message.attach_alternative(html_content, "text/html")
+    try:
+        message.send()
+        return True
+    except Exception as exc:
+        logger.warning("Email « %s » non envoyé vers %s : %s", subject, recipient, exc)
+        return False
 
 
 def resize_and_crop(image_path, size):
@@ -62,144 +110,37 @@ def send_password_reset_email(email, otp_code):
 
     :param email: Adresse email du destinataire.
     :param otp_code: Code OTP pour la réinitialisation du mot de passe.
+    :return: True si l'envoi a réussi.
     """
-    subject = "Réinitialisation de votre mot de passe Azotin"
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Réinitialisation de mot de passe</title>
-        <style>
-            body {{
-                background-color: #f3f4f6;
-                font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0 auto;
-            }}
-            .container {{
-                max-width: 600px;
-                padding: 20px;
-                background-color: #ffffff;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                text-align: center;
-            }}
-            .btn {{
-                display: inline-block;
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: #fff;
-                text-decoration: none;
-                border-radius: 3px;
-                margin-top: 20px;
-                font-size: 1.2rem;
-            }}
-            .otp-code {{
-                font-size: 2rem;
-                font-weight: 600;
-                margin-top: 1.3rem;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Réinitialisation de mot de passe</h2>
-            <p>Bonjour,</p>
-            <p>Nous avons reçu une demande de réinitialisation de votre mot de passe Azotin. Votre code est :</p>
-            <p class="otp-code">{otp_code}</p>
-            <p style="margin-top: 20px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.</p>
-            <p>Cordialement,<br>L'équipe Azotin</p>
-        </div>
-    </body>
-    </html>
-    """
-    text_content = strip_tags(
-        html_content
-    )  # Strip the HTML tags to get the text version
-    email = EmailMultiAlternatives(
-        subject, text_content, from_email=_from_email(), to=[email]
+    context = {"otp_code": otp_code}
+    html_content = render_to_string("emails/password_reset.html", context)
+    text_content = render_to_string("emails/password_reset.txt", context)
+    return _send_html_email(
+        "Réinitialisation de votre mot de passe Azotin",
+        email,
+        html_content,
+        text_content,
     )
-    email.attach_alternative(html_content, "text/html")
-    email.send()
 
 
 def send_activation_email(email, otp_code, activation_link):
     """
-    Envoie un email d'activation de compte.
+    Envoie un email d'activation / vérification de compte.
 
     :param email: Adresse email du destinataire.
     :param otp_code: Code OTP pour l'activation du compte.
     :param activation_link: Lien d'activation du compte.
+    :return: True si l'envoi a réussi.
     """
-    subject = "Activez votre compte Azotin"
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Activez votre compte Azotin</title>
-        <style>
-            body {{
-                background-color: #f3f4f6;
-                font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-            }}
-            .container {{
-                max-width: 600px;
-                padding: 20px;
-                background-color: #ffffff;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                text-align: center;
-                margin: 0 auto;
-            }}
-            .otp-code {{
-                font-size: 2rem;
-                font-weight: 600;
-                margin: 1.2rem 0;
-            }}
-            .btn {{
-                display: inline-block;
-                padding: 10px 20px;
-                background-color: #007bff;
-                color: #fff;
-                text-decoration: none;
-                border-radius: 3px;
-                margin-top: 16px;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h2>Bienvenue sur Azotin</h2>
-            <p>Votre code d'activation :</p>
-            <p class="otp-code">{otp_code}</p>
-            <p><a class="btn" href="{activation_link}">Activer mon compte</a></p>
-            <p>Cordialement,<br>L'équipe Azotin</p>
-        </div>
-    </body>
-    </html>
-    """
-    text_content = strip_tags(
-        html_content
-    )  # Strip the HTML tags to get the text version
-    email = EmailMultiAlternatives(
-        subject, text_content, from_email=_from_email(), to=[email]
+    context = {"otp_code": otp_code, "activation_link": activation_link}
+    html_content = render_to_string("emails/activation.html", context)
+    text_content = render_to_string("emails/activation.txt", context)
+    return _send_html_email(
+        "Activez votre compte Azotin",
+        email,
+        html_content,
+        text_content,
     )
-    email.attach_alternative(html_content, "text/html")
-    email.send()
 
 
 def send_whatsapp_message(phone_number, otp_code):

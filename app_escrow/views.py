@@ -4,6 +4,7 @@ API Escrow + webhook FedaPay.
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 
@@ -119,9 +120,22 @@ class ContractPaymentStatusView(APIView):
             return Response({"detail": "Introuvable"}, status=404)
 
         payment = contract.payments.order_by("-created_at").first()
+        recheck_statuses = {
+            PaymentStatus.PENDING,
+            PaymentStatus.DECLINED,
+            PaymentStatus.CANCELED,
+        }
+        waiting_statuses = {
+            ContractStatus.WAITING_PAYMENT,
+            ContractStatus.ACCEPTED,
+        }
+        # Re-vérifie FedaPay tant que le contrat n'est pas financé — un
+        # declined/canceled local (callback prématuré) ne doit pas bloquer
+        # un paiement réellement approuvé.
         if (
             payment
-            and payment.status == PaymentStatus.PENDING
+            and payment.status in recheck_statuses
+            and contract.status in waiting_statuses
             and _is_real_fedapay_tx_id(payment.fedapay_transaction_id)
         ):
             try:
@@ -145,20 +159,27 @@ class ContractPaymentStatusView(APIView):
             ContractStatus.REVISION,
             ContractStatus.COMPLETED,
         }
-        pending = contract.status == ContractStatus.WAITING_PAYMENT
+        waiting = contract.status == ContractStatus.WAITING_PAYMENT
+        payment_pending = bool(
+            payment and payment.status == PaymentStatus.PENDING
+        )
+        pending = waiting or payment_pending
+        funded = contract.status in funded_statuses
         declined = bool(
             payment
             and payment.status
             in {PaymentStatus.DECLINED, PaymentStatus.CANCELED}
         )
+        # WAITING_PAYMENT / paiement pending = polling, jamais une erreur.
+        is_error = bool(declined and not waiting and not payment_pending and not funded)
         return Response(
             {
                 "contract_id": contract.id,
                 "contract_status": contract.status,
                 "payment_status": payment.status if payment else None,
                 "pending_confirmation": pending,
-                "funded": contract.status in funded_statuses,
-                "is_error": declined and not pending,
+                "funded": funded,
+                "is_error": is_error,
                 "payment": PaymentSerializer(payment).data if payment else None,
                 "contract": ContractSerializer(contract).data,
             }
@@ -301,7 +322,7 @@ class WalletWithdrawView(APIView):
         ser = WithdrawalCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        code_pin = (
+        code_pin = str(
             ser.validated_data.get("code_pin")
             or request.data.get("code_pin")
             or request.headers.get("X-Code-Pin")
@@ -309,7 +330,8 @@ class WalletWithdrawView(APIView):
             or ""
         )
         user = request.user
-        if not user.code_pin:
+        stored_pin = str(getattr(user, "code_pin", None) or "")
+        if not stored_pin:
             return Response(
                 {
                     "detail": "Aucun code PIN défini. Définissez un PIN avant de retirer.",
@@ -325,7 +347,9 @@ class WalletWithdrawView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if str(code_pin) != str(user.code_pin):
+        if len(code_pin) != len(stored_pin) or not hmac.compare_digest(
+            code_pin, stored_pin
+        ):
             return Response(
                 {"detail": "Code PIN invalide.", "code": "invalid_pin"},
                 status=status.HTTP_400_BAD_REQUEST,

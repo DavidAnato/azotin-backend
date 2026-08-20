@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from authentication.models import Review, UserSettings
+from jobhub_api.ai_sanitize import sanitize_ai_text
 
 User = get_user_model()
 
@@ -46,6 +47,15 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = "__all__"
+
+    def validate_bio(self, value):
+        return sanitize_ai_text(value) if isinstance(value, str) else value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if isinstance(data.get("bio"), str):
+            data["bio"] = sanitize_ai_text(data["bio"])
+        return data
 
     def get_average_rating(self, obj):
         reviews = obj.reviews.all()
@@ -141,7 +151,7 @@ class EmailValidateRequestSerializer(serializers.Serializer):
     Serializer for email validation request.
     """
 
-    email = serializers.EmailField()
+    email = serializers.EmailField(required=False, allow_blank=True)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -302,6 +312,7 @@ class DeleteAccountSerializer(serializers.Serializer):
 class KYCSerializer(serializers.Serializer):
     id_type = serializers.CharField(required=False, allow_blank=True, default="")
     id_number = serializers.CharField(required=False, allow_blank=True, default="")
+    full_name = serializers.CharField(required=False, allow_blank=True, default="")
     kyc_status = serializers.CharField(read_only=True)
     kyc_submitted_at = serializers.DateTimeField(read_only=True)
     is_certified = serializers.BooleanField(read_only=True)

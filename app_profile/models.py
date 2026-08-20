@@ -19,7 +19,7 @@ class WorkerProfile(models.Model):
         "app_job.SubCategory",
         related_name="worker_profiles_job_types",
         blank=True,
-        help_text="Types de jobs additionnels (multi-sélection).",
+        help_text="Types de jobs (multi-sélection).",
     )
     # Category
     category = models.ForeignKey(

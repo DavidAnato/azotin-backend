@@ -1,4 +1,6 @@
 import logging
+import asyncio
+import threading
 from typing import Dict, Optional, Tuple
 
 import aiohttp
@@ -55,39 +57,93 @@ def create_user_notification(recipient, message, object=None):
     return notification
 
 
+def run_coroutine_sync(coro, timeout: float = 20.0):
+    """
+    Exécute une coroutine depuis un signal Django (WSGI ou ASGI/Channels).
+    `run_until_complete` casse si la boucle Channels tourne déjà (push messages).
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    box: dict = {}
+
+    def _thread():
+        try:
+            box["value"] = asyncio.run(coro)
+        except Exception as exc:  # pragma: no cover
+            box["error"] = exc
+
+    worker = threading.Thread(target=_thread, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        logger.warning("Push Expo : timeout après %.0fs", timeout)
+        return None
+    if "error" in box:
+        logger.warning("Push Expo : %s", box["error"])
+        return None
+    return box.get("value")
+
+
+def _stringify_push_data(data: Optional[dict]) -> dict:
+    out: dict = {}
+    if not data:
+        return out
+    for key, value in data.items():
+        if value is None:
+            continue
+        out[str(key)] = str(value)
+    return out
+
+
 async def send_push_notification(token, title, body, data=None):
     """
     Envoie une notification push à un utilisateur via Expo
-
-    Args:
-        token (str): Token Expo du destinataire
-        title (str): Titre de la notification
-        body (str): Corps du message
-        data (dict, optional): Données supplémentaires à envoyer. Defaults to None.
     """
-    if not token.startswith("ExponentPushToken["):
-        print("Token invalide")
-        return
+    if not token or not str(token).startswith("ExponentPushToken["):
+        logger.warning("Token push Expo invalide")
+        return None
 
     notification_data = {
         "to": token,
         "title": title,
         "body": body,
         "sound": "default",
+        "priority": "high",
+        "channelId": "default",
     }
 
-    if data:
-        notification_data["data"] = data
+    extra = _stringify_push_data(data)
+    if extra:
+        notification_data["data"] = extra
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                "https://exp.host/--/api/v2/push/send", json=[notification_data]
+                "https://exp.host/--/api/v2/push/send",
+                json=notification_data,
+                headers={
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip, deflate",
+                    "Content-Type": "application/json",
+                },
+                timeout=aiohttp.ClientTimeout(total=15),
             ) as response:
-                result = await response.json()
+                result = await response.json(content_type=None)
+                if response.status >= 400:
+                    logger.warning("Expo push HTTP %s: %s", response.status, result)
+                else:
+                    status = None
+                    if isinstance(result, dict):
+                        status = (result.get("data") or {}).get("status")
+                    if status == "error":
+                        logger.warning("Expo push rejeté: %s", result)
                 return result
     except Exception as e:
-        print(f"Erreur lors de l'envoi de la notification: {e}")
+        logger.warning("Erreur lors de l'envoi de la notification: %s", e)
+        return None
 
 
 async def send_sms_async(
@@ -225,7 +281,11 @@ def send_email_async(email: str, message: str, subject: str = "Notification") ->
 
     text_content = strip_tags(html_content)
 
-    from_email = settings.EMAIL_HOST_USER or "noreply@azotin.local"
+    from_email = (
+        getattr(settings, "DEFAULT_FROM_EMAIL", None)
+        or getattr(settings, "EMAIL_HOST_USER", None)
+        or "Azotin <noreply@azotin.local>"
+    )
     email_message = EmailMultiAlternatives(
         subject=subject,
         body=text_content,

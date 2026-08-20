@@ -1,5 +1,7 @@
 # from math import atan2, cos, radians, sin, sqrt
 
+from datetime import datetime
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Case, IntegerField, Q, When
@@ -13,7 +15,7 @@ from rest_framework.views import APIView
 
 from app_notification.utils import create_user_notification
 from app_profile.models import ClientProfile, WorkerProfile
-from authentication.kyc import kyc_required_response, user_kyc_is_approved
+from authentication.kyc import kyc_block_if_needed
 
 from .models import (
     Category,
@@ -24,7 +26,12 @@ from .models import (
     PaidService,
     SubCategory,
 )
-from .search import compute_match_score, expand_search_query
+from .search import (
+    compute_match_score,
+    expand_search_query,
+    has_only_urgency_keywords,
+    has_urgency_intent,
+)
 from .serializers import (
     CategorySerializer,
     JobApplicationSerializer,
@@ -181,8 +188,9 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
             raise ValidationError({"sub_category": ["Sous-catégorie invalide."]})
 
     def create(self, request, *args, **kwargs):
-        if not user_kyc_is_approved(request.user):
-            return kyc_required_response()
+        blocked = kyc_block_if_needed(request.user)
+        if blocked is not None:
+            return blocked
         return super().create(request, *args, **kwargs)
 
 
@@ -299,8 +307,9 @@ class JobApplicationListCreateView(generics.ListCreateAPIView):
         serializer.save(worker=worker_profile, job_offer=job_offer)
 
     def create(self, request, *args, **kwargs):
-        if not user_kyc_is_approved(request.user):
-            return kyc_required_response()
+        blocked = kyc_block_if_needed(request.user)
+        if blocked is not None:
+            return blocked
         return super().create(request, *args, **kwargs)
 
 
@@ -342,7 +351,7 @@ class JobCreateView(APIView):
         job_application.job_offer.save()
 
         offer = job_application.job_offer
-        title = (offer.title or "").strip() or f"Mission — offre #{offer.pk}"
+        title = (offer.title or "").strip() or f"Mission - offre #{offer.pk}"
 
         with transaction.atomic():
             job = Job.objects.create(
@@ -547,37 +556,64 @@ class JobOfferSuggestionListView(generics.ListAPIView):
 
 
 # Recherche de jobs par les champs suivants :
-# - query (prend en compte title, description, category, sub_category)
-# Filtres par les champs suivants :
-# - catégorie
-# - sous-catégorie
-# - localisation
-# - prix minimum
-# - prix maximum
-# - date de service
-# - type de contrat
+# - query (title, description, responsabilité, catégorie, sous-catégorie, lieu)
+#   expansion synonymes / mots-clés via app_job.search
+# Filtres :
+# - catégorie, sous-catégorie, localisation, prix, type de contrat
+# - date de service, échéance (deadline), urgent (is_urgent)
 class JobSearchView(generics.ListAPIView):
     serializer_class = JobOfferSerializer
     permission_classes = [AllowAny]
     pagination_class = JobPagination
 
+    @staticmethod
+    def _parse_date_param(value):
+        if value is None or str(value).strip() == "":
+            return None
+        raw = str(value).strip()[:10]
+        try:
+            return datetime.strptime(raw, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_bool_param(value):
+        if value is None or str(value).strip() == "":
+            return None
+        token = str(value).strip().lower()
+        if token in ("1", "true", "yes", "oui"):
+            return True
+        if token in ("0", "false", "no", "non"):
+            return False
+        return None
+
     def get_queryset(self):
-        queryset = JobOffer.objects.filter(is_filled=False).order_by("-created_at")
+        queryset = (
+            JobOffer.objects.filter(is_filled=False)
+            .select_related("category", "sub_category")
+            .order_by("-is_urgent", "-created_at")
+        )
 
         # Recherche globale avec ?query (mots-clés OR + expansion synonyme)
         query = self.request.query_params.get("query")
         self._search_keywords = []
-        if query:
+        self._urgency_intent = False
+        if query and str(query).strip():
             keywords = expand_search_query(query)
             self._search_keywords = keywords
+            self._urgency_intent = has_urgency_intent(keywords)
             q_objects = Q()
             for kw in keywords:
                 q_objects |= (
                     Q(title__icontains=kw)
                     | Q(description__icontains=kw)
+                    | Q(responsability__icontains=kw)
+                    | Q(location__icontains=kw)
                     | Q(category__name__icontains=kw)
                     | Q(sub_category__name__icontains=kw)
                 )
+            if has_only_urgency_keywords(str(query).replace(",", " ").split()):
+                q_objects |= Q(is_urgent=True)
             queryset = queryset.filter(q_objects).distinct()
 
         # Filtres supplémentaires
@@ -609,33 +645,50 @@ class JobSearchView(generics.ListAPIView):
             )
             queryset = queryset.filter(price__lte=max_price_converted)
 
-        service_date = self.request.query_params.get("service_date")
+        service_date = self._parse_date_param(
+            self.request.query_params.get("service_date")
+        )
         if service_date:
-            queryset = queryset.filter(service_date=service_date)
+            queryset = queryset.filter(service_date__date=service_date)
 
-        service_date_from = self.request.query_params.get("service_date_from")
+        service_date_from = self._parse_date_param(
+            self.request.query_params.get("service_date_from")
+        )
         if service_date_from:
-            queryset = queryset.filter(service_date__gte=service_date_from)
+            queryset = queryset.filter(service_date__date__gte=service_date_from)
 
-        service_date_to = self.request.query_params.get("service_date_to")
+        service_date_to = self._parse_date_param(
+            self.request.query_params.get("service_date_to")
+        )
         if service_date_to:
-            queryset = queryset.filter(service_date__lte=service_date_to)
+            queryset = queryset.filter(service_date__date__lte=service_date_to)
 
-        deadline_before = self.request.query_params.get("deadline_before")
+        params = self.request.query_params
+        deadline_exact = self._parse_date_param(params.get("deadline"))
+        if deadline_exact:
+            queryset = queryset.filter(deadline=deadline_exact)
+
+        deadline_before = self._parse_date_param(
+            params.get("deadline_before") or params.get("deadline_to")
+        )
         if deadline_before:
             queryset = queryset.filter(deadline__lte=deadline_before)
 
-        deadline_after = self.request.query_params.get("deadline_after")
+        deadline_after = self._parse_date_param(
+            params.get("deadline_after") or params.get("deadline_from")
+        )
         if deadline_after:
             queryset = queryset.filter(deadline__gte=deadline_after)
 
-        urgent = self.request.query_params.get("urgent")
-        if urgent is not None and str(urgent).strip() != "":
-            urgent_l = str(urgent).lower()
-            if urgent_l in ("1", "true", "yes", "oui"):
-                queryset = queryset.filter(is_urgent=True)
-            elif urgent_l in ("0", "false", "no", "non"):
-                queryset = queryset.filter(is_urgent=False)
+        urgent = self._parse_bool_param(
+            params.get("urgent")
+            if params.get("urgent") not in (None, "")
+            else params.get("is_urgent")
+        )
+        if urgent is True:
+            queryset = queryset.filter(is_urgent=True)
+        elif urgent is False:
+            queryset = queryset.filter(is_urgent=False)
 
         job_type = self.request.query_params.get("type")
         if job_type:
@@ -646,15 +699,21 @@ class JobSearchView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         keywords = getattr(self, "_search_keywords", []) or []
+        urgency_intent = getattr(self, "_urgency_intent", False)
         match_scores = {}
         if keywords:
             scored = []
             for offer in queryset:
-                score = compute_match_score(offer, keywords)
+                score = compute_match_score(
+                    offer, keywords, urgency_intent=urgency_intent
+                )
                 match_scores[offer.id] = score
-                scored.append((score, offer.pk))
-            scored.sort(key=lambda item: (-item[0], item[1]))
-            pk_order = [pk for _, pk in scored]
+                deadline = getattr(offer, "deadline", None)
+                deadline_ord = deadline.toordinal() if deadline else 10**9
+                urgent_rank = 0 if getattr(offer, "is_urgent", False) else 1
+                scored.append((score, urgent_rank, deadline_ord, offer.pk))
+            scored.sort(key=lambda item: (-item[0], item[1], item[2], item[3]))
+            pk_order = [pk for _, _, _, pk in scored]
             if pk_order:
                 preserved = Case(
                     *[When(pk=pk, then=pos) for pos, pk in enumerate(pk_order)],

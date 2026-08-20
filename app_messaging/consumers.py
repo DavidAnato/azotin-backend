@@ -159,6 +159,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "type": "error",
                         "code": saved_message_data.get("code"),
                         "detail": saved_message_data.get("detail"),
+                        "local_id": saved_message_data.get("local_id"),
                     }
                 )
             )
@@ -511,6 +512,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "error": True,
                     "code": "client_must_initiate",
                     "detail": WORKER_CANNOT_INITIATE,
+                    "local_id": local_id,
                 }
 
             reply_to = None

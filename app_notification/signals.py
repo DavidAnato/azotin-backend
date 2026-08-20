@@ -1,5 +1,3 @@
-import asyncio
-
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
@@ -13,6 +11,7 @@ from app_notification.utils import (
     send_email_if_configured,
     send_push_notification,
     send_sms_if_configured,
+    run_coroutine_sync,
 )
 from app_notification.sse import publish_notification_sse
 from app_profile.models import WorkerProfile
@@ -21,16 +20,6 @@ from authentication.models import UserSettings
 from .models import NotificationToken, UserNotification
 
 User = get_user_model()
-
-
-def run_async(coroutine):
-    """Exécute une coroutine de manière synchrone"""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coroutine)
 
 
 # Signal pour nouveau utilisateur
@@ -50,7 +39,7 @@ def notify_new_user(sender, instance, created, **kwargs):
         # Envoyer notification push
         tokens = NotificationToken.objects.filter(user=instance)
         for token in tokens:
-            run_async(
+            run_coroutine_sync(
                 send_push_notification(
                     token=token.token,
                     title="Bienvenue sur Azotin !",
@@ -84,7 +73,7 @@ def notify_job_offer(sender, instance, created, **kwargs):
                 # Envoyer notification push
                 tokens = NotificationToken.objects.filter(user=worker.user)
                 for token in tokens:
-                    run_async(
+                    run_coroutine_sync(
                         send_push_notification(
                             token=token.token,
                             title="Nouvelle offre d'emploi",
@@ -125,7 +114,7 @@ def notify_job_application(sender, instance, created, **kwargs):
         # Envoyer notification push
         tokens = NotificationToken.objects.filter(user=instance.job_offer.client.user)
         for token in tokens:
-            run_async(
+            run_coroutine_sync(
                 send_push_notification(
                     token=token.token,
                     title="Nouvelle candidature",
@@ -166,7 +155,7 @@ def notify_job_assignment(sender, instance, created, **kwargs):
         # Envoyer notification push au travailleur sélectionné
         tokens = NotificationToken.objects.filter(user=instance.worker.user)
         for token in tokens:
-            run_async(
+            run_coroutine_sync(
                 send_push_notification(
                     token=token.token,
                     title="Mission attribuée",
@@ -195,7 +184,7 @@ def notify_job_assignment(sender, instance, created, **kwargs):
             # Envoyer notification push aux autres candidats
             tokens = NotificationToken.objects.filter(user=application.worker.user)
             for token in tokens:
-                run_async(
+                run_coroutine_sync(
                     send_push_notification(
                         token=token.token,
                         title="Mission attribuée",

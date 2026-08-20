@@ -3,15 +3,19 @@ from typing import Dict, Tuple
 import requests
 from django.conf import settings
 
+GETOURVOICE_BASE_URL = "https://api.getourvoice.com"
+GETOURVOICE_TIMEOUT = 15
+
 
 def _otp_sms_disabled() -> bool:
     return bool(getattr(settings, "OTP_SKIP_SMS", False))
 
 
 def _ourvoice_api_key() -> str:
+    """GETOURVOICE_API_KEY uniquement (pas d'APP_ID). Alias OURVOICE_API_KEY conservé."""
     return (
-        getattr(settings, "OURVOICE_API_KEY", "")
-        or getattr(settings, "GETOURVOICE_API_KEY", "")
+        getattr(settings, "GETOURVOICE_API_KEY", "")
+        or getattr(settings, "OURVOICE_API_KEY", "")
         or ""
     )
 
@@ -27,9 +31,20 @@ def _dev_otp_code() -> str:
     return getattr(settings, "DEV_OTP_CODE", "00000")
 
 
+def _gov_headers(api_key: str) -> Dict[str, str]:
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+
 def send_otp(phone_number: str, api_key: str = "") -> Tuple[bool, Dict]:
     """
     Envoie un code OTP au numéro de téléphone spécifié.
+
+    Auth GetOurVoice : Bearer GETOURVOICE_API_KEY uniquement.
+    Le corps ne contient pas d'app_id.
 
     Args:
         phone_number (str): Le numéro de téléphone au format international (ex: "22962585015")
@@ -48,7 +63,6 @@ def send_otp(phone_number: str, api_key: str = "") -> Tuple[bool, Dict]:
 
     api_key = api_key or _ourvoice_api_key()
 
-    # Vérification des paramètres requis
     if not phone_number:
         return False, {"error": "Le numéro de téléphone est requis"}
     if not api_key:
@@ -57,18 +71,16 @@ def send_otp(phone_number: str, api_key: str = "") -> Tuple[bool, Dict]:
             "code": "otp_service_unavailable",
         }
 
-    base_url = "https://api.getourvoice.com"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-
-    endpoint = f"{base_url}/v1/otp/send"
+    endpoint = f"{GETOURVOICE_BASE_URL}/v1/otp/send"
     payload = {"send_to": phone_number}
 
     try:
-        response = requests.post(endpoint, headers=headers, json=payload)
+        response = requests.post(
+            endpoint,
+            headers=_gov_headers(api_key),
+            json=payload,
+            timeout=GETOURVOICE_TIMEOUT,
+        )
 
         if response.status_code == 405:
             return False, {"error": "Méthode non autorisée. Vérifiez l'URL de l'API."}
@@ -92,6 +104,9 @@ def send_otp(phone_number: str, api_key: str = "") -> Tuple[bool, Dict]:
 def verify_otp(phone_number: str, code: str, api_key: str = "") -> Tuple[bool, Dict]:
     """
     Vérifie le code OTP saisi par l'utilisateur.
+
+    Auth GetOurVoice : Bearer GETOURVOICE_API_KEY uniquement.
+    Le corps ne contient pas d'app_id.
 
     Args:
         phone_number (str): Le numéro de téléphone au format international
@@ -121,18 +136,16 @@ def verify_otp(phone_number: str, code: str, api_key: str = "") -> Tuple[bool, D
             "code": "otp_service_unavailable",
         }
 
-    base_url = "https://api.getourvoice.com"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-
-    endpoint = f"{base_url}/v1/otp/verify"
+    endpoint = f"{GETOURVOICE_BASE_URL}/v1/otp/verify"
     payload = {"code": code, "send_to": phone_number}
 
     try:
-        response = requests.post(endpoint, headers=headers, json=payload)
+        response = requests.post(
+            endpoint,
+            headers=_gov_headers(api_key),
+            json=payload,
+            timeout=GETOURVOICE_TIMEOUT,
+        )
 
         if response.status_code == 405:
             return False, {"error": "Méthode non autorisée. Vérifiez l'URL de l'API."}
@@ -146,7 +159,6 @@ def verify_otp(phone_number: str, code: str, api_key: str = "") -> Tuple[bool, D
         response.raise_for_status()
         response_data = response.json()
 
-        # Vérifier le succès et la validité selon la réponse de GetOurVoice
         is_valid = (
             response_data.get("success", False)
             and response_data.get("valid", False)

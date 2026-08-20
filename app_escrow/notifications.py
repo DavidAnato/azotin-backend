@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from app_notification.models import NotificationToken
 from app_notification.prefs import get_notification_settings
-from app_notification.utils import create_user_notification, send_push_notification
-
-
-def _run_async(coroutine):
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coroutine)
+from app_notification.utils import (
+    create_user_notification,
+    run_coroutine_sync,
+    send_push_notification,
+)
 
 
 def _push_data(meta: dict[str, Any]) -> dict[str, str]:
@@ -47,7 +41,7 @@ def notify_user(
     tokens = NotificationToken.objects.filter(user=user)
     data = _push_data(meta)
     for token in tokens:
-        _run_async(
+        run_coroutine_sync(
             send_push_notification(
                 token=token.token,
                 title=title,

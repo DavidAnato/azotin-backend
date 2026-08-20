@@ -1,10 +1,11 @@
 # Third-party imports
 import logging
+from datetime import timedelta
+
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import generics, permissions, status, views
@@ -44,6 +45,8 @@ from .serializers import (
 
 # Local imports
 from .utils import (
+    build_activation_link,
+    frontend_activation_success_url,
     send_activation_email,
     send_password_reset_email,
     send_whatsapp_message,
@@ -113,7 +116,7 @@ class UserRegisterView(generics.CreateAPIView):
 
                 success, response = send_otp(
                     phone_number=phone_number,
-                    api_key=settings.OURVOICE_API_KEY,
+                    api_key=settings.GETOURVOICE_API_KEY,
                 )
 
                 if not success:
@@ -166,7 +169,7 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
             # Envoyer l'OTP via GetOurVoice
             success, response = send_otp(
                 phone_number=phone_number,
-                api_key=settings.OURVOICE_API_KEY,
+                api_key=settings.GETOURVOICE_API_KEY,
             )
 
             # Vérifier si l'envoi a réussi
@@ -210,7 +213,7 @@ class PhoneNumberValidateConfirmView(generics.CreateAPIView):
             success, response = verify_otp(
                 phone_number=phone_number,
                 code=otp_code,
-                api_key=settings.OURVOICE_API_KEY,
+                api_key=settings.GETOURVOICE_API_KEY,
             )
 
             if not success:
@@ -250,43 +253,56 @@ class EmailValidateRequestView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data or {})
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
+        email = (serializer.validated_data.get("email") or "").strip()
+        if not email and request.user.is_authenticated:
+            email = request.user.email or ""
+        if not email:
+            return Response(
+                {"error": "Adresse email requise."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             user = User.objects.get(email=email)
-            if user.is_active:
-                return Response(
-                    {"error": "User with this email is already activated."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
         except User.DoesNotExist:
             return Response(
-                {"error": "User with this email not found."},
+                {"error": "Aucun compte trouvé avec cette adresse email."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Generate new OTP
+        if user.verified_email:
+            return Response(
+                {"error": "Cette adresse email est déjà vérifiée."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         otp_code = get_random_string(length=5, allowed_chars="1234567890")
         user.otp_code = otp_code
         user.otp_generated_at = timezone.now()
-        user.save()
+        user.save(update_fields=["otp_code", "otp_generated_at"])
 
-        # Send email with new OTP
-        activation_link = (
-            self.request.build_absolute_uri(reverse("email-activate"))
-            + f"?otp_code={otp_code}&email={user.email}"
-        )
-        send_activation_email(user.email, otp_code, activation_link)
+        activation_link = build_activation_link(request, user.email, otp_code)
+        sent = send_activation_email(user.email, otp_code, activation_link)
+        if not sent:
+            return Response(
+                {
+                    "error": "Impossible d'envoyer l'email de vérification. Réessayez plus tard.",
+                    "code": "email_send_failed",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(
-            {"message": "New OTP sent successfully."}, status=status.HTTP_201_CREATED
+            {"message": "Un email de vérification a été envoyé."},
+            status=status.HTTP_201_CREATED,
         )
 
 
 class EmailActivateView(generics.GenericAPIView):
     serializer_class = OTPVerificationSerializer
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         otp_code = request.query_params.get("otp_code")
@@ -294,15 +310,14 @@ class EmailActivateView(generics.GenericAPIView):
 
         if not otp_code or not email:
             return Response(
-                {"error": "OTP and email are required in query parameters."},
+                {"error": "Le code OTP et l'email sont requis."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         activation_response = self.activate_account(email, otp_code)
         if activation_response.status_code == status.HTTP_200_OK:
-            return redirect("http://localhost:3000/activation-success")
-        else:
-            return activation_response
+            return redirect(frontend_activation_success_url())
+        return activation_response
 
     def post(self, request, *args, **kwargs):
         return self.activate_account(
@@ -310,32 +325,53 @@ class EmailActivateView(generics.GenericAPIView):
         )
 
     def activate_account(self, email, otp_code):
+        if not email or not otp_code:
+            return Response(
+                {"error": "Le code OTP et l'email sont requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"error": "User not found."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Utilisateur introuvable."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if user.verified_email:
+            return Response(
+                {"message": "Cette adresse email est déjà vérifiée."},
+                status=status.HTTP_200_OK,
             )
         if user.otp_code != otp_code:
             return Response(
-                {"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Code OTP invalide."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if (
             user.otp_generated_at
-            and user.otp_generated_at + timezone.timedelta(hours=3) < timezone.now()
+            and user.otp_generated_at + timedelta(hours=3) < timezone.now()
         ):
             return Response(
-                {"error": "OTP has expired. Please request a new OTP."},
+                {"error": "Le code OTP a expiré. Demandez-en un nouveau."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         user.is_active = True
         user.verified_email = True
-        user.save()
+        user.otp_code = None
+        user.otp_generated_at = None
+        user.save(
+            update_fields=[
+                "is_active",
+                "verified_email",
+                "otp_code",
+                "otp_generated_at",
+            ]
+        )
 
         return Response(
-            {"message": "Your account has been activated successfully."},
+            {"message": "Votre compte a été activé avec succès."},
             status=status.HTTP_200_OK,
         )
 
@@ -348,6 +384,10 @@ class BaseLoginView(APIView):
     def enrich_user_data(self, user, request=None):
         context = {"request": request} if request is not None else {}
         user_data = UserSerializer(user, context=context).data
+        user_data["kyc_status"] = effective_kyc_status(user)
+        user_data["is_certified"] = bool(user.is_certified) or effective_kyc_status(
+            user
+        ) == "approved"
         try:
             settings = UserSettings.objects.get(user=user)
             user_data["settings"] = UserSettingsSerializer(settings).data
@@ -622,7 +662,14 @@ class PasswordResetRequestView(generics.GenericAPIView):
             user.save()
 
             if "@" in email_or_phone:
-                send_password_reset_email(user.email, otp_code)
+                if not send_password_reset_email(user.email, otp_code):
+                    return Response(
+                        {
+                            "detail": "Impossible d'envoyer l'email. Réessayez plus tard.",
+                            "code": "email_send_failed",
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
             else:
                 send_whatsapp_message(user.phone_number, otp_code)
 
@@ -820,6 +867,17 @@ class DeleteAccountView(APIView):
                     "Impossible de blacklister le refresh token à la suppression."
                 )
 
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import (
+                BlacklistedToken,
+                OutstandingToken,
+            )
+
+            for outstanding in OutstandingToken.objects.filter(user_id=user.pk):
+                BlacklistedToken.objects.get_or_create(token=outstanding)
+        except Exception:
+            logger.info("Impossible de blacklister les sessions à la suppression.")
+
         stamp = timezone.now().strftime("%Y%m%d%H%M%S")
         user.is_active = False
         user.email = f"deleted+{user.id}+{stamp}@deleted.azotin.local"
@@ -832,6 +890,7 @@ class DeleteAccountView(APIView):
         user.otp_code = None
         user.save()
 
+        # Pas de tokens, pas d'autre user : le client doit uniquement se déconnecter.
         return Response(
             {"detail": "Compte désactivé."},
             status=status.HTTP_200_OK,
@@ -863,6 +922,15 @@ class KYCView(APIView):
         user.kyc_id_number = (
             serializer.validated_data.get("id_number") or user.kyc_id_number
         )
+        full_name = (serializer.validated_data.get("full_name") or "").strip()
+        name_fields = []
+        if full_name:
+            parts = full_name.split(None, 1)
+            user.first_name = parts[0]
+            name_fields.append("first_name")
+            if len(parts) > 1:
+                user.last_name = parts[1]
+                name_fields.append("last_name")
         user.kyc_submitted_at = timezone.now()
         if user.is_certified or user.kyc_status == "approved":
             user.kyc_status = "approved"
@@ -876,6 +944,7 @@ class KYCView(APIView):
                 "kyc_submitted_at",
                 "kyc_status",
                 "is_certified",
+                *name_fields,
             ]
         )
         return Response(
