@@ -38,6 +38,7 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
     previous_work_photos = PreviousWorkPhotoSerializer(many=True)
     category = CategorySerializer()
     title = TitleSerializer()
+    job_types = TitleSerializer(many=True, read_only=True)
     is_favorite = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -48,6 +49,9 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
 class WorkerProfileSerializerForUpdate(serializers.ModelSerializer):
     user = UserSerializer()
     previous_work_photos = PreviousWorkPhotoSerializer(many=True)
+    job_types = serializers.PrimaryKeyRelatedField(
+        many=True, required=False, read_only=True
+    )
     # category = CategorySerializer()
     # title = TitleSerializer()
 

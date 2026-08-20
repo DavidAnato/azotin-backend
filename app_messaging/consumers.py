@@ -152,6 +152,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             reply_to_id=data.get("reply_to_id"),
         )
 
+        if saved_message_data and saved_message_data.get("error"):
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "code": saved_message_data.get("code"),
+                        "detail": saved_message_data.get("detail"),
+                    }
+                )
+            )
+            return
+
         print("\033[95m=== Données du message sauvegardé ===\033[0m")
         print(f"\033[95mID du message: {saved_message_data['id']}\033[0m")
         print(f"\033[95mContenu: {saved_message_data['content']}\033[0m")
@@ -485,6 +497,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             print("\033[94m=== Sauvegarde du message et des médias ===\033[0m")
             conversation = Conversation.objects.get(id=self.conversation_id)
+
+            from django.contrib.auth import get_user_model
+
+            from .access import (
+                WORKER_CANNOT_INITIATE,
+                worker_blocked_from_first_message,
+            )
+
+            sender = get_user_model().objects.filter(pk=sender_id).first()
+            if sender and worker_blocked_from_first_message(sender, conversation):
+                return {
+                    "error": True,
+                    "code": "client_must_initiate",
+                    "detail": WORKER_CANNOT_INITIATE,
+                }
 
             reply_to = None
             if reply_to_id not in (None, "", "null", "undefined"):

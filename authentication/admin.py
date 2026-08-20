@@ -5,13 +5,13 @@ from django.utils.html import format_html
 from .models import Review, User, UserSettings
 
 # Modifier le nom affiché dans l'en-tête de l'interface d'administration
-admin.site.site_header = "Administration de Connecte Me"
+admin.site.site_header = "Administration Azotin"
 
 # Modifier le nom affiché dans l'onglet du navigateur
-admin.site.site_title = "Jobhub Admin"
+admin.site.site_title = "Azotin Admin"
 
 # Modifier le titre de la page principale de l'interface d'administration
-admin.site.index_title = "Bienvenue sur l'interface d'administration de Jobhub"
+admin.site.index_title = "Bienvenue sur l'interface d'administration d'Azotin"
 
 
 class ReviewInline(admin.TabularInline):
@@ -39,6 +39,9 @@ class UserAdmin(BaseUserAdmin):
         "is_active",
         "is_staff",
         "is_superuser",
+        "is_certified",
+        "profile_type",
+        "kyc_status",
     )
 
     fieldsets = (
@@ -74,6 +77,12 @@ class UserAdmin(BaseUserAdmin):
                     "is_active",
                     "is_staff",
                     "is_superuser",
+                    "is_certified",
+                    "profile_type",
+                    "kyc_status",
+                    "kyc_submitted_at",
+                    "kyc_id_type",
+                    "kyc_id_number",
                     "groups",
                     "user_permissions",
                 )
@@ -86,7 +95,7 @@ class UserAdmin(BaseUserAdmin):
         ("Google Auth", {"fields": ("google_id", "picture_url", "verified_email")}),
     )
 
-    readonly_fields = ("profile_picture_image",)
+    readonly_fields = ("profile_picture_image", "kyc_submitted_at")
 
     inlines = [ReviewInline]
 

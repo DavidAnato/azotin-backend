@@ -7,6 +7,11 @@ from rest_framework.views import APIView
 
 from .broadcast import broadcast_new_message
 from .member_utils import clear_inbox_flags, get_or_create_member_state
+from .access import (
+    WORKER_CANNOT_INITIATE,
+    worker_blocked_from_first_message,
+    worker_blocked_from_new_conversation,
+)
 from .message_visibility import (
     broadcast_message_event,
     can_delete_for_everyone,
@@ -196,6 +201,15 @@ class ConversationCreateView(generics.CreateAPIView):
             serializer = self.get_serializer(existing_conversation)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
+        if worker_blocked_from_new_conversation(self.request.user, None):
+            return Response(
+                {
+                    "detail": WORKER_CANNOT_INITIATE,
+                    "code": "client_must_initiate",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         conversation = Conversation.objects.create()
         conversation.participants.add(self.request.user, other_participant_id)
 
@@ -267,6 +281,15 @@ class MessageCreateView(APIView):
             return Response(
                 {"error": "Conversation introuvable"},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if worker_blocked_from_first_message(request.user, conversation):
+            return Response(
+                {
+                    "detail": WORKER_CANNOT_INITIATE,
+                    "code": "client_must_initiate",
+                },
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if job_offer_id in ("", "null", "undefined", 0, "0"):

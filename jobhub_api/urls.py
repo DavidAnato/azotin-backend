@@ -18,11 +18,11 @@ from app_escrow.urls import (
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="JobHub API",
+        title="Azotin API",
         default_version="v1",
-        description="API documentation for JobHub",
+        description="API documentation for Azotin",
         terms_of_service="https://www.google.com/policies/terms/",
-        contact=openapi.Contact(email="contact@jobhub.local"),
+        contact=openapi.Contact(email="contact@azotin.local"),
         license=openapi.License(name="BSD License"),
     ),
     public=True,

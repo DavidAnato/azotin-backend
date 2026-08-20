@@ -149,14 +149,11 @@ def send_sms_if_configured(phone_number: str, message: str) -> None:
     api_key = getattr(settings, "OURVOICE_API_KEY", "") or ""
     if not api_key or not phone_number or not message:
         return
-    sender_id = getattr(settings, "OURVOICE_APP_ID", "") or None
-    sender_name = None if sender_id else "AZOTIN"
     async_to_sync(send_sms_async)(
         phone_number,
         message,
         api_key,
-        sender_id=sender_id,
-        sender_name=sender_name,
+        sender_name="AZOTIN",
     )
 
 

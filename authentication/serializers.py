@@ -92,8 +92,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ["first_name", "last_name", "phone_number", "profile_type"]
 
     def create(self, validated_data):
-        validated_data.pop("profile_type", None)
-        return User.objects.create(**validated_data)
+        profile_type = validated_data.pop("profile_type", None)
+        user = User.objects.create(**validated_data)
+        if profile_type:
+            user.profile_type = profile_type
+            user.save(update_fields=["profile_type"])
+        return user
 
 
 class PhoneNumberValidateRequestSerializer(serializers.Serializer):
@@ -288,3 +292,16 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             "language",
         ]
         read_only_fields = ["user"]
+
+
+class DeleteAccountSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField(required=False, allow_blank=True)
+    refresh = serializers.CharField(required=False, allow_blank=True)
+
+
+class KYCSerializer(serializers.Serializer):
+    id_type = serializers.CharField(required=False, allow_blank=True, default="")
+    id_number = serializers.CharField(required=False, allow_blank=True, default="")
+    kyc_status = serializers.CharField(read_only=True)
+    kyc_submitted_at = serializers.DateTimeField(read_only=True)
+    is_certified = serializers.BooleanField(read_only=True)

@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     # rest-framework
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     # swagger
     "drf_yasg",
     "channels",
@@ -161,7 +162,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # rest-framework
 REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated"),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
@@ -197,13 +198,17 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# send email
+# send email (SMTP configurable — pas uniquement Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_USE_TLS = True
-EMAIL_PORT = 587
+EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL",
+    default=EMAIL_HOST_USER or "Azotin <noreply@azotin.local>",
+)
 
 AUTH_USER_MODEL = "authentication.User"
 
@@ -237,9 +242,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 #     },
 # }
 
-# GetOurVoice Configuration
-OURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
-OURVOICE_APP_ID = config("GETOURVOICE_APP_ID", default="")
+# GetOurVoice Configuration (OTP : clé API uniquement)
+GETOURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
+OURVOICE_API_KEY = GETOURVOICE_API_KEY
 
 # OTP inscription (désactiver l'envoi SMS en dev)
 OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=False, cast=bool)
@@ -253,4 +258,8 @@ FEDAPAY_ENVIRONMENT = config("FEDAPAY_ENVIRONMENT", default="sandbox")
 FEDAPAY_SKIP_WEBHOOK_SIGNATURE = config(
     "FEDAPAY_SKIP_WEBHOOK_SIGNATURE", default=False, cast=bool
 )
+# Sandbox dashboard : « Momo Test ». Slug API : momo_test (les deux sont acceptés).
+FEDAPAY_PAYOUT_MODE = config("FEDAPAY_PAYOUT_MODE", default="momo_test")
+# Libellé « Momo Test », slug momo_test, ou ID numérique de balance FedaPay.
+FEDAPAY_TRANSFER_BALANCE = config("FEDAPAY_TRANSFER_BALANCE", default="momo_test")
 PUBLIC_API_BASE_URL = config("PUBLIC_API_BASE_URL", default="http://localhost:8000")

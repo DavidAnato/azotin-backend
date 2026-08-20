@@ -15,6 +15,12 @@ class WorkerProfile(models.Model):
     title = models.ForeignKey(
         "app_job.SubCategory", on_delete=models.CASCADE, blank=True, null=True
     )
+    job_types = models.ManyToManyField(
+        "app_job.SubCategory",
+        related_name="worker_profiles_job_types",
+        blank=True,
+        help_text="Types de jobs additionnels (multi-sélection).",
+    )
     # Category
     category = models.ForeignKey(
         "app_job.Category",

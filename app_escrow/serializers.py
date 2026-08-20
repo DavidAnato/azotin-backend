@@ -233,4 +233,8 @@ class WithdrawalCreateSerializer(serializers.Serializer):
         max_digits=12, decimal_places=0, min_value=Decimal("1")
     )
     phone_number = serializers.CharField(required=False, allow_blank=True, default="")
+    # Canal wallet (mobile_money / bank) — pas le mode FedaPay (momo_test).
     method = serializers.CharField(required=False, default="mobile_money")
+    code_pin = serializers.CharField(
+        required=False, allow_blank=True, min_length=4, max_length=4
+    )

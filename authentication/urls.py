@@ -5,10 +5,12 @@ from .views import (
     CheckPhoneNumberView,
     CodePINCreateView,
     CodePINUpdateView,
+    DeleteAccountView,
     EmailActivateView,
     EmailValidateRequestView,
     EnsureProfileView,
     GoogleLoginView,
+    KYCView,
     LoginView,
     LogoutView,
     PasswordResetConfirmView,
@@ -64,4 +66,6 @@ urlpatterns = [
         "check-phone-number/", CheckPhoneNumberView.as_view(), name="check-phone-number"
     ),
     path("settings/", UserSettingsView.as_view(), name="user-settings"),
+    path("delete-account/", DeleteAccountView.as_view(), name="delete-account"),
+    path("kyc/", KYCView.as_view(), name="kyc"),
 ]

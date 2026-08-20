@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 
 from app_escrow.models import (
     Contract,
+    ContractStatus,
     Payment,
     PaymentStatus,
     WalletTransaction,
@@ -35,6 +36,7 @@ from app_escrow.serializers import (
     WithdrawalSerializer,
 )
 from app_escrow.services.escrow import (
+    _is_real_fedapay_tx_id,
     accept_contract,
     apply_payout_webhook,
     approve_contract,
@@ -102,6 +104,67 @@ class ContractDetailView(generics.RetrieveAPIView):
         ).select_related("client", "freelancer")
 
 
+class ContractPaymentStatusView(APIView):
+    """GET poll-friendly : WAITING_PAYMENT n'est pas une erreur."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        contract = (
+            Contract.objects.filter(Q(client=request.user) | Q(freelancer=request.user), pk=pk)
+            .select_related("client", "freelancer")
+            .first()
+        )
+        if not contract:
+            return Response({"detail": "Introuvable"}, status=404)
+
+        payment = contract.payments.order_by("-created_at").first()
+        if (
+            payment
+            and payment.status == PaymentStatus.PENDING
+            and _is_real_fedapay_tx_id(payment.fedapay_transaction_id)
+        ):
+            try:
+                verified = fedapay_service.verify_payment(payment.fedapay_transaction_id)
+                if verified.get("is_paid"):
+                    mark_contract_funded(
+                        payment, transaction_payload=verified.get("transaction")
+                    )
+                    contract.refresh_from_db()
+                    payment.refresh_from_db()
+            except FedaPayError:
+                logger.info(
+                    "verify_payment indisponible pour contrat %s — statut local conservé",
+                    contract.id,
+                )
+
+        funded_statuses = {
+            ContractStatus.FUNDED,
+            ContractStatus.WORKING,
+            ContractStatus.SUBMITTED,
+            ContractStatus.REVISION,
+            ContractStatus.COMPLETED,
+        }
+        pending = contract.status == ContractStatus.WAITING_PAYMENT
+        declined = bool(
+            payment
+            and payment.status
+            in {PaymentStatus.DECLINED, PaymentStatus.CANCELED}
+        )
+        return Response(
+            {
+                "contract_id": contract.id,
+                "contract_status": contract.status,
+                "payment_status": payment.status if payment else None,
+                "pending_confirmation": pending,
+                "funded": contract.status in funded_statuses,
+                "is_error": declined and not pending,
+                "payment": PaymentSerializer(payment).data if payment else None,
+                "contract": ContractSerializer(contract).data,
+            }
+        )
+
+
 class ContractAcceptView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -130,6 +193,16 @@ class ContractFundView(APIView):
                 "payment": PaymentSerializer(payment).data,
                 "payment_url": payment.payment_url,
                 "payment_id": payment.id,
+                "pending_confirmation": contract.status
+                == ContractStatus.WAITING_PAYMENT,
+                "funded": contract.status
+                in {
+                    ContractStatus.FUNDED,
+                    ContractStatus.WORKING,
+                    ContractStatus.SUBMITTED,
+                    ContractStatus.REVISION,
+                    ContractStatus.COMPLETED,
+                },
             }
         )
 
@@ -227,6 +300,37 @@ class WalletWithdrawView(APIView):
     def post(self, request):
         ser = WithdrawalCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+
+        code_pin = (
+            ser.validated_data.get("code_pin")
+            or request.data.get("code_pin")
+            or request.headers.get("X-Code-Pin")
+            or request.headers.get("X-PIN")
+            or ""
+        )
+        user = request.user
+        if not user.code_pin:
+            return Response(
+                {
+                    "detail": "Aucun code PIN défini. Définissez un PIN avant de retirer.",
+                    "code": "pin_required",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not code_pin:
+            return Response(
+                {
+                    "detail": "Le code PIN est requis pour retirer.",
+                    "code": "pin_required",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if str(code_pin) != str(user.code_pin):
+            return Response(
+                {"detail": "Code PIN invalide.", "code": "invalid_pin"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         withdrawal = request_withdrawal(
             request.user,
             ser.validated_data["amount"],

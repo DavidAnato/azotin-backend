@@ -44,7 +44,32 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)
     is_certified = models.BooleanField(default=False)
-    online_status = models.BooleanField(default=False)
+    PROFILE_TYPE_CHOICES = (
+        ("worker", "Travailleur"),
+        ("employer", "Client"),
+    )
+    profile_type = models.CharField(
+        max_length=20,
+        choices=PROFILE_TYPE_CHOICES,
+        blank=True,
+        default="",
+        help_text="worker ou employer (client).",
+    )
+    KYC_STATUS_CHOICES = (
+        ("none", "Aucun"),
+        ("pending", "En attente"),
+        ("approved", "Approuvé"),
+        ("rejected", "Rejeté"),
+    )
+    kyc_status = models.CharField(
+        max_length=20,
+        choices=KYC_STATUS_CHOICES,
+        default="none",
+        db_index=True,
+    )
+    kyc_submitted_at = models.DateTimeField(null=True, blank=True)
+    kyc_id_type = models.CharField(max_length=50, blank=True, default="")
+    kyc_id_number = models.CharField(max_length=100, blank=True, default="")
 
     # Preferences
     THEME_CHOICES = (
@@ -99,6 +124,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         if not self.bg_color or not self.text_color:
             self.bg_color, self.text_color = self.generate_contrasting_colors()
+
+        if self.is_certified and self.kyc_status in ("", "none"):
+            self.kyc_status = "approved"
+        if self.kyc_status == "approved":
+            self.is_certified = True
 
         if self.pk and self.profile_picture:
             try:

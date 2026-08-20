@@ -42,6 +42,8 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "price",
             "frequency",
             "service_date",
+            "deadline",
+            "is_urgent",
             "is_recurring",
             "type",
             "created_at",
@@ -57,6 +59,8 @@ class JobOfferSerializer(serializers.ModelSerializer):
             "voice_note": {"required": False},
             "location_latitude": {"required": False},
             "location_longitude": {"required": False},
+            "deadline": {"required": False, "allow_null": True},
+            "is_urgent": {"required": False},
         }
 
     def validate_sub_category(self, value):

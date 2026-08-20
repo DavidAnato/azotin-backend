@@ -2,7 +2,7 @@
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, When
 from django.forms import ValidationError
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 
 from app_notification.utils import create_user_notification
 from app_profile.models import ClientProfile, WorkerProfile
+from authentication.kyc import kyc_required_response, user_kyc_is_approved
 
 from .models import (
     Category,
@@ -23,6 +24,7 @@ from .models import (
     PaidService,
     SubCategory,
 )
+from .search import compute_match_score, expand_search_query
 from .serializers import (
     CategorySerializer,
     JobApplicationSerializer,
@@ -178,6 +180,11 @@ class JobOfferListCreateView(generics.ListCreateAPIView):
         except SubCategory.DoesNotExist:
             raise ValidationError({"sub_category": ["Sous-catégorie invalide."]})
 
+    def create(self, request, *args, **kwargs):
+        if not user_kyc_is_approved(request.user):
+            return kyc_required_response()
+        return super().create(request, *args, **kwargs)
+
 
 class JobOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = JobOffer.objects.all()
@@ -290,6 +297,11 @@ class JobApplicationListCreateView(generics.ListCreateAPIView):
         ).exists():
             raise PermissionDenied("Vous avez déjà postulé à cette offre.")
         serializer.save(worker=worker_profile, job_offer=job_offer)
+
+    def create(self, request, *args, **kwargs):
+        if not user_kyc_is_approved(request.user):
+            return kyc_required_response()
+        return super().create(request, *args, **kwargs)
 
 
 class JobApplicationDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -550,17 +562,23 @@ class JobSearchView(generics.ListAPIView):
     pagination_class = JobPagination
 
     def get_queryset(self):
-        queryset = JobOffer.objects.filter(is_filled=False)
+        queryset = JobOffer.objects.filter(is_filled=False).order_by("-created_at")
 
-        # Recherche globale avec ?query
+        # Recherche globale avec ?query (mots-clés OR + expansion synonyme)
         query = self.request.query_params.get("query")
+        self._search_keywords = []
         if query:
-            queryset = queryset.filter(
-                Q(title__icontains=query)
-                | Q(description__icontains=query)
-                | Q(category__name__icontains=query)
-                | Q(sub_category__name__icontains=query)
-            )
+            keywords = expand_search_query(query)
+            self._search_keywords = keywords
+            q_objects = Q()
+            for kw in keywords:
+                q_objects |= (
+                    Q(title__icontains=kw)
+                    | Q(description__icontains=kw)
+                    | Q(category__name__icontains=kw)
+                    | Q(sub_category__name__icontains=kw)
+                )
+            queryset = queryset.filter(q_objects).distinct()
 
         # Filtres supplémentaires
         category = self.request.query_params.get("category")
@@ -595,6 +613,30 @@ class JobSearchView(generics.ListAPIView):
         if service_date:
             queryset = queryset.filter(service_date=service_date)
 
+        service_date_from = self.request.query_params.get("service_date_from")
+        if service_date_from:
+            queryset = queryset.filter(service_date__gte=service_date_from)
+
+        service_date_to = self.request.query_params.get("service_date_to")
+        if service_date_to:
+            queryset = queryset.filter(service_date__lte=service_date_to)
+
+        deadline_before = self.request.query_params.get("deadline_before")
+        if deadline_before:
+            queryset = queryset.filter(deadline__lte=deadline_before)
+
+        deadline_after = self.request.query_params.get("deadline_after")
+        if deadline_after:
+            queryset = queryset.filter(deadline__gte=deadline_after)
+
+        urgent = self.request.query_params.get("urgent")
+        if urgent is not None and str(urgent).strip() != "":
+            urgent_l = str(urgent).lower()
+            if urgent_l in ("1", "true", "yes", "oui"):
+                queryset = queryset.filter(is_urgent=True)
+            elif urgent_l in ("0", "false", "no", "non"):
+                queryset = queryset.filter(is_urgent=False)
+
         job_type = self.request.query_params.get("type")
         if job_type:
             queryset = queryset.filter(type__iexact=job_type)
@@ -602,18 +644,37 @@ class JobSearchView(generics.ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+        queryset = self.filter_queryset(self.get_queryset())
+        keywords = getattr(self, "_search_keywords", []) or []
+        match_scores = {}
+        if keywords:
+            scored = []
+            for offer in queryset:
+                score = compute_match_score(offer, keywords)
+                match_scores[offer.id] = score
+                scored.append((score, offer.pk))
+            scored.sort(key=lambda item: (-item[0], item[1]))
+            pk_order = [pk for _, pk in scored]
+            if pk_order:
+                preserved = Case(
+                    *[When(pk=pk, then=pos) for pos, pk in enumerate(pk_order)],
+                    output_field=IntegerField(),
+                )
+                queryset = queryset.filter(pk__in=pk_order).order_by(preserved)
+
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            self.add_custom_fields(serializer.data, request.user)
+            self.add_custom_fields(serializer.data, request.user, match_scores)
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
-        self.add_custom_fields(serializer.data, request.user)
+        self.add_custom_fields(serializer.data, request.user, match_scores)
         return Response(serializer.data)
 
-    def add_custom_fields(self, data_list, user):
+    def add_custom_fields(self, data_list, user, match_scores=None):
+        match_scores = match_scores or {}
+        authenticated = getattr(user, "is_authenticated", False)
         job_offer_ids = [data["id"] for data in data_list]
         job_offers = JobOffer.objects.filter(id__in=job_offer_ids).prefetch_related(
             "job_favorites", "applications__worker__user", "job"
@@ -624,6 +685,15 @@ class JobSearchView(generics.ListAPIView):
         for data in data_list:
             job_offer = job_offer_dict.get(data["id"])
             if not job_offer:
+                continue
+
+            data["match_score"] = match_scores.get(data["id"], 0)
+
+            if not authenticated:
+                data["status"] = None
+                data["is_favorite"] = False
+                data["applicant_count"] = job_offer.applications.count()
+                data["applicants"] = []
                 continue
 
             if Job.objects.filter(job_offer=job_offer, worker__user=user).exists():

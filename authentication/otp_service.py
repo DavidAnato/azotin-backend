@@ -8,18 +8,32 @@ def _otp_sms_disabled() -> bool:
     return bool(getattr(settings, "OTP_SKIP_SMS", False))
 
 
+def _ourvoice_api_key() -> str:
+    return (
+        getattr(settings, "OURVOICE_API_KEY", "")
+        or getattr(settings, "GETOURVOICE_API_KEY", "")
+        or ""
+    )
+
+
+def otp_service_ready() -> bool:
+    """True si le bypass DEV est actif ou si GETOURVOICE_API_KEY est présente."""
+    if _otp_sms_disabled():
+        return True
+    return bool(_ourvoice_api_key())
+
+
 def _dev_otp_code() -> str:
     return getattr(settings, "DEV_OTP_CODE", "00000")
 
 
-def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
+def send_otp(phone_number: str, api_key: str = "") -> Tuple[bool, Dict]:
     """
     Envoie un code OTP au numéro de téléphone spécifié.
 
     Args:
         phone_number (str): Le numéro de téléphone au format international (ex: "22962585015")
-        api_key (str): La clé API Our Voice
-        app_id (str): L'ID de l'application
+        api_key (str): La clé API GetOurVoice (GETOURVOICE_API_KEY)
 
     Returns:
         Tuple[bool, Dict]: (succès, réponse)
@@ -32,13 +46,16 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
             "dev_otp": _dev_otp_code(),
         }
 
+    api_key = api_key or _ourvoice_api_key()
+
     # Vérification des paramètres requis
     if not phone_number:
         return False, {"error": "Le numéro de téléphone est requis"}
     if not api_key:
-        return False, {"error": "La clé API GetOurVoice est requise"}
-    if not app_id:
-        return False, {"error": "L'ID de l'application GetOurVoice est requis"}
+        return False, {
+            "error": "La clé API GetOurVoice (GETOURVOICE_API_KEY) est manquante.",
+            "code": "otp_service_unavailable",
+        }
 
     base_url = "https://api.getourvoice.com"
     headers = {
@@ -48,7 +65,7 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
     }
 
     endpoint = f"{base_url}/v1/otp/send"
-    payload = {"send_to": phone_number, "app_id": app_id}
+    payload = {"send_to": phone_number}
 
     try:
         response = requests.post(endpoint, headers=headers, json=payload)
@@ -72,17 +89,14 @@ def send_otp(phone_number: str, api_key: str, app_id: str) -> Tuple[bool, Dict]:
         return False, {"error": f"Erreur lors de l'envoi : {error_message}"}
 
 
-def verify_otp(
-    phone_number: str, code: str, api_key: str, app_id: str
-) -> Tuple[bool, Dict]:
+def verify_otp(phone_number: str, code: str, api_key: str = "") -> Tuple[bool, Dict]:
     """
     Vérifie le code OTP saisi par l'utilisateur.
 
     Args:
         phone_number (str): Le numéro de téléphone au format international
         code (str): Le code OTP saisi par l'utilisateur
-        api_key (str): La clé API Our Voice
-        app_id (str): L'ID de l'application
+        api_key (str): La clé API GetOurVoice (GETOURVOICE_API_KEY)
 
     Returns:
         Tuple[bool, Dict]: (succès, réponse)
@@ -99,8 +113,13 @@ def verify_otp(
             }
         return False, {"error": "Code OTP invalide."}
 
-    if not api_key or not app_id:
-        return False, {"error": "API key et APP ID sont requis"}
+    api_key = api_key or _ourvoice_api_key()
+    if not api_key:
+        return False, {
+            "error": "Le service OTP GetOurVoice n'est pas configuré "
+            "(GETOURVOICE_API_KEY).",
+            "code": "otp_service_unavailable",
+        }
 
     base_url = "https://api.getourvoice.com"
     headers = {
@@ -110,7 +129,7 @@ def verify_otp(
     }
 
     endpoint = f"{base_url}/v1/otp/verify"
-    payload = {"code": code, "send_to": phone_number, "app_id": app_id}
+    payload = {"code": code, "send_to": phone_number}
 
     try:
         response = requests.post(endpoint, headers=headers, json=payload)

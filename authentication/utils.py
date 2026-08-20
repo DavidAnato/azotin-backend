@@ -4,6 +4,14 @@ from django.utils.html import strip_tags
 from PIL import Image
 
 
+def _from_email():
+    return (
+        getattr(settings, "DEFAULT_FROM_EMAIL", None)
+        or getattr(settings, "EMAIL_HOST_USER", None)
+        or "Azotin <noreply@azotin.local>"
+    )
+
+
 def resize_and_crop(image_path, size):
     """
     Redimensionne et recadre une image pour qu'elle soit carrée.
@@ -55,14 +63,14 @@ def send_password_reset_email(email, otp_code):
     :param email: Adresse email du destinataire.
     :param otp_code: Code OTP pour la réinitialisation du mot de passe.
     """
-    subject = "Password Reset Request"
+    subject = "Réinitialisation de votre mot de passe Azotin"
     html_content = f"""
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="fr">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset Request</title>
+        <title>Réinitialisation de mot de passe</title>
         <style>
             body {{
                 background-color: #f3f4f6;
@@ -101,12 +109,12 @@ def send_password_reset_email(email, otp_code):
     </head>
     <body>
         <div class="container">
-            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Password Reset Request</h2>
-            <p>Hello,</p>
-            <p>We received a request to reset your password. Your OTP is:</p>
+            <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Réinitialisation de mot de passe</h2>
+            <p>Bonjour,</p>
+            <p>Nous avons reçu une demande de réinitialisation de votre mot de passe Azotin. Votre code est :</p>
             <p class="otp-code">{otp_code}</p>
-            <p style="margin-top: 20px;">If you did not request this, you can safely ignore this email.</p>
-            <p>Regards,<br>The ConnectMe Team</p>
+            <p style="margin-top: 20px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.</p>
+            <p>Cordialement,<br>L'équipe Azotin</p>
         </div>
     </body>
     </html>
@@ -115,7 +123,7 @@ def send_password_reset_email(email, otp_code):
         html_content
     )  # Strip the HTML tags to get the text version
     email = EmailMultiAlternatives(
-        subject, text_content, from_email=settings.EMAIL_HOST_USER, to=[email]
+        subject, text_content, from_email=_from_email(), to=[email]
     )
     email.attach_alternative(html_content, "text/html")
     email.send()
@@ -129,14 +137,14 @@ def send_activation_email(email, otp_code, activation_link):
     :param otp_code: Code OTP pour l'activation du compte.
     :param activation_link: Lien d'activation du compte.
     """
-    subject = "Activate Your Account"
+    subject = "Activez votre compte Azotin"
     html_content = f"""
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="fr">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Activate Your Account</title>
+        <title>Activez votre compte Azotin</title>
         <style>
             body {{
                 background-color: #f3f4f6;
@@ -157,11 +165,29 @@ def send_activation_email(email, otp_code, activation_link):
                 text-align: center;
                 margin: 0 auto;
             }}
+            .otp-code {{
+                font-size: 2rem;
+                font-weight: 600;
+                margin: 1.2rem 0;
+            }}
+            .btn {{
+                display: inline-block;
+                padding: 10px 20px;
+                background-color: #007bff;
+                color: #fff;
+                text-decoration: none;
+                border-radius: 3px;
+                margin-top: 16px;
+            }}
         </style>
     </head>
     <body>
         <div class="container">
-            <p style="font-size: 1.5rem; font-weight: 600;">{otp_code}</p>
+            <h2>Bienvenue sur Azotin</h2>
+            <p>Votre code d'activation :</p>
+            <p class="otp-code">{otp_code}</p>
+            <p><a class="btn" href="{activation_link}">Activer mon compte</a></p>
+            <p>Cordialement,<br>L'équipe Azotin</p>
         </div>
     </body>
     </html>
@@ -170,7 +196,7 @@ def send_activation_email(email, otp_code, activation_link):
         html_content
     )  # Strip the HTML tags to get the text version
     email = EmailMultiAlternatives(
-        subject, text_content, from_email=settings.EMAIL_HOST_USER, to=[email]
+        subject, text_content, from_email=_from_email(), to=[email]
     )
     email.attach_alternative(html_content, "text/html")
     email.send()
@@ -217,7 +243,7 @@ def send_whatsapp_message(phone_number, otp_code):
     email = EmailMultiAlternatives(
         subject,
         text_content,
-        from_email=settings.EMAIL_HOST_USER,
+        from_email=_from_email(),
         to=["david1anato@gmail.com"],
     )
     email.attach_alternative(html_content, "text/html")

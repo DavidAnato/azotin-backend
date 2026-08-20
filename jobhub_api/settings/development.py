@@ -57,3 +57,10 @@ if not config("EMAIL_HOST_USER", default="") or not config(
 # Inscription : pas de SMS GetOurVoice, code OTP fixe (5 chiffres)
 OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=True, cast=bool)
 DEV_OTP_CODE = config("DEV_OTP_CODE", default="00000")
+
+# Redis optionnel en local : Channels in-memory pour tests / machine sans Redis.
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}

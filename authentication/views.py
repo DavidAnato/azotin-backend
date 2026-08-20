@@ -20,13 +20,16 @@ from app_profile.serializers import (
     WorkerProfileSerializer,
 )
 from authentication.models import UserSettings
+from authentication.kyc import effective_kyc_status
 
-from .otp_service import send_otp, verify_otp
+from .otp_service import otp_service_ready, send_otp, verify_otp
 from .serializers import (
     ChangePasswordSerializer,
     CodePINSerializer,
+    DeleteAccountSerializer,
     EmailValidateRequestSerializer,
     GoogleLoginSerializer,
+    KYCSerializer,
     LoginSerializer,
     OTPVerificationSerializer,
     PasswordResetConfirmSerializer,
@@ -50,6 +53,35 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+def _otp_unavailable_response():
+    return Response(
+        {
+            "error": "Le service OTP GetOurVoice n'est pas configuré "
+            "(GETOURVOICE_API_KEY).",
+            "code": "otp_service_unavailable",
+        },
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
+def _otp_failure_response(payload):
+    if (payload or {}).get("code") == "otp_service_unavailable":
+        return Response(
+            {
+                "error": payload.get(
+                    "error",
+                    "Le service OTP GetOurVoice n'est pas configuré.",
+                ),
+                "code": "otp_service_unavailable",
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return Response(
+        {"error": (payload or {}).get("error", "Échec de l'envoi du code OTP.")},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
 def create_user_profile(user, profile_type: str) -> None:
     """Crée le profil client ou travailleur + paramètres utilisateur."""
     UserSettings.objects.get_or_create(user=user)
@@ -59,6 +91,9 @@ def create_user_profile(user, profile_type: str) -> None:
         ClientProfile.objects.get_or_create(user=user)
     else:
         raise ValueError(f"Type de profil invalide : {profile_type}")
+    if getattr(user, "profile_type", "") != profile_type:
+        user.profile_type = profile_type
+        user.save(update_fields=["profile_type"])
 
 
 class UserRegisterView(generics.CreateAPIView):
@@ -73,29 +108,16 @@ class UserRegisterView(generics.CreateAPIView):
         try:
             phone_number = serializer.validated_data.get("phone_number")
             if phone_number:
-                if not getattr(settings, "OTP_SKIP_SMS", False) and (
-                    not settings.OURVOICE_API_KEY or not settings.OURVOICE_APP_ID
-                ):
-                    return Response(
-                        {"error": "La configuration GetOurVoice est manquante."},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
+                if not otp_service_ready():
+                    return _otp_unavailable_response()
 
                 success, response = send_otp(
                     phone_number=phone_number,
                     api_key=settings.OURVOICE_API_KEY,
-                    app_id=settings.OURVOICE_APP_ID,
                 )
 
                 if not success:
-                    return Response(
-                        {
-                            "error": response.get(
-                                "error", "Échec de l'envoi du code OTP."
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    return _otp_failure_response(response)
 
                 # Si l'envoi OTP a réussi, créer l'utilisateur
                 user = serializer.save()
@@ -138,19 +160,18 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
             # Vérifier si l'utilisateur existe
             User.objects.get(phone_number=phone_number)
 
+            if not otp_service_ready():
+                return _otp_unavailable_response()
+
             # Envoyer l'OTP via GetOurVoice
             success, response = send_otp(
                 phone_number=phone_number,
                 api_key=settings.OURVOICE_API_KEY,
-                app_id=settings.OURVOICE_APP_ID,
             )
 
             # Vérifier si l'envoi a réussi
             if not success:
-                return Response(
-                    {"error": response.get("error", "Échec de l'envoi du code OTP.")},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return _otp_failure_response(response)
 
             payload = {"message": "Code OTP envoyé avec succès."}
             if getattr(settings, "OTP_SKIP_SMS", False):
@@ -182,15 +203,19 @@ class PhoneNumberValidateConfirmView(generics.CreateAPIView):
         try:
             user = User.objects.get(phone_number=phone_number)
 
+            if not otp_service_ready():
+                return _otp_unavailable_response()
+
             # Vérifier l'OTP via GetOurVoice
             success, response = verify_otp(
                 phone_number=phone_number,
                 code=otp_code,
                 api_key=settings.OURVOICE_API_KEY,
-                app_id=settings.OURVOICE_APP_ID,
             )
 
             if not success:
+                if (response or {}).get("code") == "otp_service_unavailable":
+                    return _otp_failure_response(response)
                 error_message = response.get("error") or response.get(
                     "message", "Code OTP invalide."
                 )
@@ -250,7 +275,7 @@ class EmailValidateRequestView(generics.CreateAPIView):
 
         # Send email with new OTP
         activation_link = (
-            self.request.build_absolute_uri(reverse("activate-email"))
+            self.request.build_absolute_uri(reverse("email-activate"))
             + f"?otp_code={otp_code}&email={user.email}"
         )
         send_activation_email(user.email, otp_code, activation_link)
@@ -755,3 +780,112 @@ class UserSettingsView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteAccountView(APIView):
+    """Désactive le compte courant (soft-delete). Ne bascule jamais vers un autre utilisateur."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeleteAccountSerializer
+
+    def post(self, request, *args, **kwargs):
+        return self._deactivate(request)
+
+    def delete(self, request, *args, **kwargs):
+        return self._deactivate(request)
+
+    def _deactivate(self, request):
+        user = request.user
+        serializer = DeleteAccountSerializer(data=request.data or {})
+        serializer.is_valid(raise_exception=False)
+        refresh_token = ""
+        if serializer.is_valid():
+            refresh_token = (
+                serializer.validated_data.get("refresh_token")
+                or serializer.validated_data.get("refresh")
+                or ""
+            )
+        if not refresh_token:
+            refresh_token = (
+                request.data.get("refresh_token")
+                or request.data.get("refresh")
+                or ""
+            )
+
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except Exception:
+                logger.info(
+                    "Impossible de blacklister le refresh token à la suppression."
+                )
+
+        stamp = timezone.now().strftime("%Y%m%d%H%M%S")
+        user.is_active = False
+        user.email = f"deleted+{user.id}+{stamp}@deleted.azotin.local"
+        user.phone_number = f"d{user.id}{stamp}"[:20]
+        user.username = f"deleted_{user.id}_{stamp}"[:100]
+        user.first_name = "Utilisateur"
+        user.last_name = "Supprimé"
+        user.google_id = None
+        user.code_pin = None
+        user.otp_code = None
+        user.save()
+
+        return Response(
+            {"detail": "Compte désactivé."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class KYCView(APIView):
+    """Consultation et dépôt KYC (métadonnées pièce d'identité)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        return Response(
+            {
+                "kyc_status": effective_kyc_status(user),
+                "kyc_submitted_at": user.kyc_submitted_at,
+                "is_certified": bool(user.is_certified),
+                "id_type": user.kyc_id_type or "",
+                "id_number": user.kyc_id_number or "",
+            }
+        )
+
+    def post(self, request, *args, **kwargs):
+        serializer = KYCSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.kyc_id_type = serializer.validated_data.get("id_type") or user.kyc_id_type
+        user.kyc_id_number = (
+            serializer.validated_data.get("id_number") or user.kyc_id_number
+        )
+        user.kyc_submitted_at = timezone.now()
+        if user.is_certified or user.kyc_status == "approved":
+            user.kyc_status = "approved"
+            user.is_certified = True
+        else:
+            user.kyc_status = "pending"
+        user.save(
+            update_fields=[
+                "kyc_id_type",
+                "kyc_id_number",
+                "kyc_submitted_at",
+                "kyc_status",
+                "is_certified",
+            ]
+        )
+        return Response(
+            {
+                "kyc_status": effective_kyc_status(user),
+                "kyc_submitted_at": user.kyc_submitted_at,
+                "is_certified": bool(user.is_certified),
+                "id_type": user.kyc_id_type or "",
+                "id_number": user.kyc_id_number or "",
+                "detail": "Dossier KYC enregistré.",
+            },
+            status=status.HTTP_200_OK,
+        )

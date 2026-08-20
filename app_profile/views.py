@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app_job.models import JobOffer
+from app_job.models import JobOffer, SubCategory
 from authentication.models import UserSettings
 from authentication.serializers import UserSerializer, UserSettingsSerializer
 
@@ -21,6 +21,34 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def _parse_id_list(raw):
+    if raw is None:
+        return None
+    if isinstance(raw, (list, tuple)):
+        parts = []
+        for item in raw:
+            parts.extend(str(item).split(","))
+    else:
+        parts = str(raw).split(",")
+    ids = []
+    for part in parts:
+        part = part.strip()
+        if part.isdigit():
+            ids.append(int(part))
+    return ids
+
+
+def _apply_job_types(worker_profile, raw_job_types):
+    ids = _parse_id_list(raw_job_types)
+    if ids is None:
+        return
+    valid = list(SubCategory.objects.filter(id__in=ids).values_list("id", flat=True))
+    worker_profile.job_types.set(valid)
+    if valid and not worker_profile.title_id:
+        worker_profile.title_id = valid[0]
+        worker_profile.save(update_fields=["title"])
 
 
 class ProfilePagination(PageNumberPagination):
@@ -125,8 +153,10 @@ class UpdateWorkerProfileView(APIView):
 
         # Mise à jour ou création du WorkerProfile
         worker_profile, created = WorkerProfile.objects.get_or_create(user=user)
+        payload = request.data.copy()
+        raw_job_types = payload.pop("job_types", None)
         worker_profile_serializer = WorkerProfileSerializerForUpdate(
-            worker_profile, data=request.data, partial=True
+            worker_profile, data=payload, partial=True
         )
         if worker_profile_serializer.is_valid():
             worker_profile_serializer.save()
@@ -134,6 +164,7 @@ class UpdateWorkerProfileView(APIView):
             return Response(
                 worker_profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST
             )
+        _apply_job_types(worker_profile, raw_job_types)
 
         # Ajout des photos de PreviousWorkPhoto
         if "previous_work_photos" in request.FILES:

@@ -78,6 +78,12 @@ class JobOffer(models.Model):
     service_date = models.DateTimeField(
         null=True, blank=True, help_text="Scheduled date and time for the service."
     )
+    deadline = models.DateField(
+        null=True, blank=True, help_text="Date limite pour postuler / réaliser la mission."
+    )
+    is_urgent = models.BooleanField(
+        default=False, help_text="Offre urgente."
+    )
     is_recurring = models.BooleanField(
         default=False, help_text="True if the service is recurring."
     )

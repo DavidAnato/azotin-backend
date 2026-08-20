@@ -19,9 +19,11 @@ class JobOfferAdmin(admin.ModelAdmin):
         "category",
         "sub_category",
         "price",
+        "is_urgent",
+        "deadline",
         "created_at",
     )
-    list_filter = ("category", "sub_category", "created_at")
+    list_filter = ("category", "sub_category", "created_at", "is_urgent")
     search_fields = (
         "title",
         "description",

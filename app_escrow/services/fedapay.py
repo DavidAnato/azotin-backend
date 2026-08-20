@@ -21,6 +21,32 @@ from django.conf import settings
 
 logger = logging.getLogger("app_escrow.fedapay")
 
+# Dashboard sandbox : « Momo Test ». Slug API documenté : momo_test.
+_MOMO_TEST_LABELS = frozenset(
+    {
+        "momo test",
+        "momo_test",
+        "momo-test",
+        "momotest",
+    }
+)
+
+
+def normalize_fedapay_payout_mode(value: str | None) -> str:
+    """Mappe le libellé dashboard « Momo Test » vers le slug API momo_test."""
+    raw = (value or "").strip()
+    if not raw:
+        return "momo_test"
+    compact = "".join(ch for ch in raw.lower() if ch.isalnum() or ch in {"_", "-"})
+    slug = compact.replace("-", "_")
+    if slug.replace("_", "") in {"momotest"} or raw.lower() in _MOMO_TEST_LABELS:
+        return "momo_test"
+    return raw
+
+
+def _norm_balance_label(value: str) -> str:
+    return "".join(ch for ch in (value or "").lower() if ch.isalnum())
+
 
 class FedaPayError(Exception):
     """Erreur métier / API FedaPay."""
@@ -213,6 +239,62 @@ class FedaPayService:
 
         return True
 
+    def list_balances(self) -> list[dict[str, Any]]:
+        """GET /balances — soldes du compte (mode, id, amount)."""
+        data = self._request("GET", "/balances")
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        if not isinstance(data, dict):
+            return []
+        for key in ("balances", "v1/balances", "data"):
+            items = data.get(key)
+            if isinstance(items, list):
+                return [item for item in items if isinstance(item, dict)]
+        if data.get("id") is not None:
+            return [data]
+        return []
+
+    def resolve_transfer_balance_id(self, configured: str | int | None) -> int | None:
+        """
+        ID de balance FedaPay.
+        Accepte un id numérique, ou un libellé/slug (« Momo Test », momo_test).
+        """
+        if configured is None:
+            return None
+        value = str(configured).strip()
+        if not value:
+            return None
+        if value.isdigit():
+            return int(value)
+        if not self.secret_key:
+            return None
+        target_mode = normalize_fedapay_payout_mode(value)
+        target_label = _norm_balance_label(value)
+        try:
+            balances = self.list_balances()
+        except FedaPayError:
+            logger.warning(
+                "Impossible de résoudre FEDAPAY_TRANSFER_BALANCE via GET /balances"
+            )
+            return None
+        for bal in balances:
+            bal_id = bal.get("id")
+            if bal_id is None:
+                continue
+            mode = str(bal.get("mode") or "")
+            name = str(bal.get("name") or bal.get("label") or "")
+            if normalize_fedapay_payout_mode(mode) == target_mode:
+                return int(bal_id)
+            if target_label and _norm_balance_label(mode) == target_label:
+                return int(bal_id)
+            if target_label and _norm_balance_label(name) == target_label:
+                return int(bal_id)
+        logger.warning(
+            "Aucune balance FedaPay ne correspond à FEDAPAY_TRANSFER_BALANCE "
+            "(libellé/slug). Coller l'id numérique dans .env si besoin."
+        )
+        return None
+
     def create_payout(
         self,
         *,
@@ -220,20 +302,29 @@ class FedaPayService:
         description: str,
         customer: dict[str, Any],
         currency: str = "XOF",
-        mode: str = "mtn_open",
+        mode: str | None = None,
+        balance: str | int | None = None,
     ) -> dict[str, Any]:
-        """POST /payouts — création d'un virement Mobile Money (mode obligatoire)."""
+        """POST /payouts — virement Mobile Money (mode + balance sandbox : Momo Test)."""
+        resolved_mode = normalize_fedapay_payout_mode(mode)
         payload: dict[str, Any] = {
             "amount": int(amount),
             "currency": {"iso": currency},
             "description": description,
-            "mode": mode or "mtn_open",
+            "mode": resolved_mode,
             "customer": customer,
         }
+        configured_balance = balance
+        if configured_balance is None:
+            configured_balance = getattr(settings, "FEDAPAY_TRANSFER_BALANCE", "") or ""
+        balance_id = self.resolve_transfer_balance_id(configured_balance)
+        if balance_id is not None:
+            payload["balance_id"] = balance_id
         logger.info(
-            "FedaPay create_payout amount=%s mode=%s phone=%s",
+            "FedaPay create_payout amount=%s mode=%s balance_id=%s phone=%s",
             payload["amount"],
             payload["mode"],
+            payload.get("balance_id"),
             (customer or {}).get("phone_number"),
         )
         return self._request("POST", "/payouts", json=payload)

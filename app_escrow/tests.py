@@ -26,7 +26,7 @@ from app_escrow.models import (
     WebhookEventLog,
 )
 from app_escrow.services.escrow import approve_contract, mark_contract_funded
-from app_escrow.services.fedapay import FedaPayService
+from app_escrow.services.fedapay import FedaPayService, normalize_fedapay_payout_mode
 
 User = get_user_model()
 
@@ -122,6 +122,48 @@ class ContractFlowTests(APITestCase):
                 contract=contract, fedapay_transaction_id="999"
             ).exists()
         )
+
+    def test_payment_status_waiting_is_not_error(self):
+        contract = Contract.objects.create(
+            client=self.client_user,
+            freelancer=self.freelancer,
+            title="Job",
+            description="Desc",
+            amount=10000,
+            status=ContractStatus.WAITING_PAYMENT,
+        )
+        Payment.objects.create(
+            contract=contract,
+            fedapay_transaction_id="seed-tx",
+            amount=10000,
+            status=PaymentStatus.PENDING,
+        )
+        self.api.force_authenticate(self.client_user)
+        res = self.api.get(f"/contracts/{contract.id}/payment-status/")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(res.data["pending_confirmation"])
+        self.assertFalse(res.data["is_error"])
+        self.assertEqual(res.data["contract_status"], ContractStatus.WAITING_PAYMENT)
+
+    def test_fund_already_working_returns_success(self):
+        contract = Contract.objects.create(
+            client=self.client_user,
+            freelancer=self.freelancer,
+            title="Job",
+            description="Desc",
+            amount=10000,
+            status=ContractStatus.WORKING,
+        )
+        Payment.objects.create(
+            contract=contract,
+            fedapay_transaction_id="555",
+            amount=10000,
+            status=PaymentStatus.APPROVED,
+        )
+        self.api.force_authenticate(self.client_user)
+        res = self.api.post(f"/contracts/{contract.id}/fund/")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(res.data["funded"])
 
 
 @override_settings(
@@ -219,17 +261,23 @@ class WalletTests(APITestCase):
         self.contract.save(update_fields=["status"])
         # transition invalid — skip
 
+    @override_settings(
+        FEDAPAY_PAYOUT_MODE="Momo Test",
+        FEDAPAY_TRANSFER_BALANCE="Momo Test",
+    )
     def test_withdraw(self):
         wallet, _ = Wallet.objects.get_or_create(owner=self.freelancer)
         wallet.balance = Decimal("8000")
         wallet.save()
+        self.freelancer.code_pin = "1234"
+        self.freelancer.save(update_fields=["code_pin"])
         self.api.force_authenticate(self.freelancer)
         with patch("app_escrow.services.escrow.fedapay_service") as mock_feda:
             mock_feda.create_payout.return_value = {"id": 42, "status": "pending"}
             mock_feda.start_payouts.return_value = {"started": True}
             res = self.api.post(
                 "/wallet/withdraw/",
-                {"amount": 3000, "phone_number": "22961000022"},
+                {"amount": 3000, "phone_number": "22961000022", "code_pin": "1234"},
                 format="json",
             )
         self.assertEqual(res.status_code, 201, res.data)
@@ -237,4 +285,46 @@ class WalletTests(APITestCase):
         self.assertEqual(wallet.balance, Decimal("5000"))
         self.assertEqual(res.data["status"], "processing")
         mock_feda.create_payout.assert_called_once()
+        payout_kwargs = mock_feda.create_payout.call_args.kwargs
+        self.assertEqual(payout_kwargs["mode"], "momo_test")
+        self.assertEqual(
+            normalize_fedapay_payout_mode(str(payout_kwargs.get("balance") or "")),
+            "momo_test",
+        )
         mock_feda.start_payouts.assert_called_once_with([42])
+
+    def test_withdraw_requires_pin(self):
+        wallet, _ = Wallet.objects.get_or_create(owner=self.freelancer)
+        wallet.balance = Decimal("8000")
+        wallet.save()
+        self.api.force_authenticate(self.freelancer)
+        res = self.api.post(
+            "/wallet/withdraw/",
+            {"amount": 1000, "phone_number": "22961000022"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data.get("code"), "pin_required")
+
+
+class FedaPayPayoutModeTests(TestCase):
+    def test_normalize_momo_test_labels(self):
+        for value in ("Momo Test", "momo_test", "momo-test", "MOMO TEST"):
+            self.assertEqual(normalize_fedapay_payout_mode(value), "momo_test")
+        self.assertEqual(normalize_fedapay_payout_mode(""), "momo_test")
+        self.assertEqual(normalize_fedapay_payout_mode("mtn_open"), "mtn_open")
+
+    def test_resolve_numeric_balance_without_http(self):
+        svc = FedaPayService()
+        self.assertEqual(svc.resolve_transfer_balance_id("42"), 42)
+        self.assertEqual(svc.resolve_transfer_balance_id(7), 7)
+
+    def test_resolve_momo_test_balance_from_list(self):
+        svc = FedaPayService()
+        svc.secret_key = "sk_test_dummy"
+        with patch.object(
+            svc,
+            "list_balances",
+            return_value=[{"id": 99, "mode": "momo_test", "amount": 0}],
+        ):
+            self.assertEqual(svc.resolve_transfer_balance_id("Momo Test"), 99)

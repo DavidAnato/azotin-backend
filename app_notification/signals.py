@@ -53,7 +53,7 @@ def notify_new_user(sender, instance, created, **kwargs):
             run_async(
                 send_push_notification(
                     token=token.token,
-                    title="Bienvenue sur JobHub !",
+                    title="Bienvenue sur Azotin !",
                     body="Bienvenue sur notre plateforme ! 🎉",
                     data={
                         "type": "new_user",

@@ -25,7 +25,11 @@ from app_escrow.models import (
 )
 from app_escrow.notifications import contract_notif_object, notify_user
 from app_escrow.platform_settings import get_platform_settings
-from app_escrow.services.fedapay import FedaPayError, fedapay_service
+from app_escrow.services.fedapay import (
+    FedaPayError,
+    fedapay_service,
+    normalize_fedapay_payout_mode,
+)
 
 logger = logging.getLogger("app_escrow.services")
 
@@ -114,9 +118,18 @@ def _fedapay_payout_phone(phone: str) -> dict[str, str]:
 
 def _fedapay_payout_mode(phone: str) -> str:
     """
-    Mode opérateur FedaPay (obligatoire sur POST /payouts).
-    Préfixes historiques BJ après éventuel 01 du nouveau plan.
+    Mode FedaPay pour POST /payouts.
+    Sandbox : momo_test (libellé dashboard « Momo Test »).
+    Live : détection opérateur BJ si FEDAPAY_PAYOUT_MODE est vide.
     """
+    configured = (getattr(settings, "FEDAPAY_PAYOUT_MODE", "") or "").strip()
+    if configured:
+        return normalize_fedapay_payout_mode(configured)
+
+    env = (getattr(settings, "FEDAPAY_ENVIRONMENT", "sandbox") or "sandbox").lower()
+    if env != "live":
+        return "momo_test"
+
     local = _bj_local_digits(phone)
     if local.startswith("01") and len(local) >= 4:
         op = local[2:4]
@@ -128,7 +141,6 @@ def _fedapay_payout_mode(phone: str) -> str:
         return "moov"
     if op in mtn:
         return "mtn_open"
-    # Défaut MTN Bénin (sandbox + cas ambigus 01…)
     return "mtn_open"
 
 
@@ -198,14 +210,25 @@ def fund_contract(contract: Contract, user, callback_url: str) -> tuple[Contract
     """
     if contract.client_id != user.id:
         raise PermissionDenied("Seul le client peut financer ce contrat.")
+
+    # Déjà financé (webhook/callback) — le client peut re-poller sans erreur.
+    if contract.status in {
+        ContractStatus.FUNDED,
+        ContractStatus.WORKING,
+        ContractStatus.SUBMITTED,
+        ContractStatus.REVISION,
+        ContractStatus.COMPLETED,
+    }:
+        payment = contract.payments.order_by("-created_at").first()
+        if payment is None:
+            raise ValidationError("Contrat financé sans paiement associé.")
+        return contract, payment
+
     if contract.status not in {
         ContractStatus.ACCEPTED,
         ContractStatus.WAITING_PAYMENT,
     }:
         raise ValidationError("Le contrat doit être accepté avant financement.")
-
-    if contract.status == ContractStatus.FUNDED:
-        raise ValidationError("Le contrat est déjà financé.")
 
     existing = (
         contract.payments.filter(status=PaymentStatus.PENDING)
@@ -629,6 +652,7 @@ def _execute_fedapay_payout(withdrawal: Withdrawal, user) -> Withdrawal:
     phone = withdrawal.phone_number or getattr(user, "phone_number", "") or ""
     customer = _fedapay_customer_for_user(user, phone)
     mode = _fedapay_payout_mode(phone)
+    balance = getattr(settings, "FEDAPAY_TRANSFER_BALANCE", "") or ""
     try:
         payout = fedapay_service.create_payout(
             amount=int(withdrawal.amount),
@@ -636,6 +660,7 @@ def _execute_fedapay_payout(withdrawal: Withdrawal, user) -> Withdrawal:
             customer=customer,
             currency=wallet.currency or "XOF",
             mode=mode,
+            balance=balance,
         )
         payout_id = payout.get("id")
         if payout_id is None:

@@ -29,7 +29,12 @@ def sse_user_channel(user_id: int) -> str:
 def publish_notification_sse(user_id: int, payload: Dict[str, Any]) -> None:
     """Diffuse un événement aux abonnés SSE de l'utilisateur (sync, depuis Django)."""
     try:
-        client = redis.from_url(REDIS_URL, decode_responses=True)
+        client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=0.3,
+            socket_timeout=0.3,
+        )
         client.publish(sse_user_channel(user_id), json.dumps(payload, default=str))
         client.close()
     except Exception as exc:

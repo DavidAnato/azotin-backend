@@ -1,5 +1,5 @@
 """
-Seed de développement — JobHub / AZOTIN (branche dev).
+Seed de développement — AZOTIN (branche dev).
 
 Usage (depuis jobhub_api) :
   .\\venv\\Scripts\\python.exe seed_data.py
