@@ -2,19 +2,16 @@
 """
 Compatibilité Build Command Render : `python seeddata.py`.
 
-Le dashboard Render appelle encore ce fichier après collectstatic.
-Le seed en **build** prod est dangereux (DB mutée à chaque deploy, échec
-si la base n'est pas prête). Par défaut ce script ne fait rien (exit 0)
-pour que le build réussisse.
+Seed automatique par défaut (build / start Render).
+Pour désactiver : SKIP_SEED=1
 
-Pour charger les données (local ou Shell Render one-off) :
   python manage.py seeddata
   python manage.py seeddata --reset
-  RUN_SEED=1 python seeddata.py
   python seeddata.py --reset
+  SKIP_SEED=1 python seeddata.py
 
-Variables d'environnement (quand le seed est réellement lancé) :
-  RUN_SEED=1
+Variables d'environnement :
+  SKIP_SEED=1
   SEED_RESET=1
   SEED_SKIP_NETWORK=1
   SEED_SUPERUSER_PHONE / SEED_SUPERUSER_PASSWORD
@@ -30,7 +27,8 @@ import sys
 def _should_run_seed(reset: bool) -> bool:
     if reset:
         return True
-    return os.environ.get("RUN_SEED", "0") == "1"
+    # Opt-out : SKIP_SEED=1 désactive le seed auto
+    return os.environ.get("SKIP_SEED", "0") != "1"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -44,8 +42,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not _should_run_seed(args.reset):
         print(
-            "seed skipped; run manually: python manage.py seeddata "
-            "(or RUN_SEED=1 python seeddata.py / python seeddata.py --reset)",
+            "seed skipped (SKIP_SEED=1); run manually: python manage.py seeddata",
             file=sys.stderr,
         )
         return 0

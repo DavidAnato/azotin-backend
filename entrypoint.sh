@@ -1,8 +1,8 @@
 #!/bin/sh
-# Entrypoint Docker / production — chemin sûr par défaut (pas de flush).
+# Entrypoint Docker / production.
 # Variables optionnelles :
 #   ALLOW_FLUSH=1   — flush DB (démons éphémères uniquement, JAMAIS en prod)
-#   RUN_SEED=1      — exécute seeddata après migrate
+#   SKIP_SEED=1     — désactive le seed automatique
 #   PORT            — port d'écoute (défaut 8000 ; Render injecte $PORT)
 set -e
 
@@ -17,8 +17,10 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-if [ "${RUN_SEED:-0}" = "1" ]; then
-  echo "RUN_SEED=1 — chargement des données de démonstration (seeddata)..."
+if [ "${SKIP_SEED:-0}" = "1" ]; then
+  echo "SKIP_SEED=1 — seeddata ignoré."
+else
+  echo "seeddata automatique..."
   python manage.py seeddata
 fi
 

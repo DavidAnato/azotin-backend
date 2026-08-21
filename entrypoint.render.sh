@@ -1,9 +1,6 @@
 #!/bin/sh
-# Entrypoint Render — migrate + collectstatic + gunicorn.
-# Le seed n'est PAS lancé au démarrage : utiliser un one-off Shell :
-#   python manage.py seeddata
-#   python manage.py seeddata --reset
-# Ou définir RUN_SEED=1 temporairement (non recommandé en prod permanente).
+# Entrypoint Render — migrate + collectstatic + seed + gunicorn.
+# Désactiver le seed : SKIP_SEED=1
 set -e
 
 echo "Running database migrations..."
@@ -12,8 +9,10 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-if [ "${RUN_SEED:-0}" = "1" ]; then
-  echo "RUN_SEED=1 — seeddata..."
+if [ "${SKIP_SEED:-0}" = "1" ]; then
+  echo "SKIP_SEED=1 — seeddata ignoré."
+else
+  echo "seeddata automatique..."
   python manage.py seeddata
 fi
 
