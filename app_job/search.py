@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import date
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+
+from django.db.models import Q
 
 # Expansion bidirectionnelle : chaque terme pointe vers ses équivalents.
 # Couvre les métiers seed Azotin (Bénin) + variantes courantes FR/EN.
@@ -16,15 +18,18 @@ _JOB_SYNONYMS = {
     "plomberie": ["plombier", "plumber", "sanitaire", "fuite"],
     "fuite": ["plombier", "plomberie", "plumber"],
     # Ménage / nettoyage
-    "menage": ["cleaning", "nettoyage", "femme de menage", "housework", "entretien", "repassage"],
+    "menage": ["cleaning", "nettoyage", "femme de menage", "housework", "entretien", "repassage", "menager", "menagere"],
+    "menager": ["menage", "menagere", "nettoyage", "cleaning", "entretien"],
+    "menagere": ["menage", "menager", "nettoyage", "cleaning"],
     "cleaning": ["menage", "nettoyage", "housework", "cleaner"],
-    "nettoyage": ["menage", "cleaning", "entretien"],
+    "nettoyage": ["menage", "cleaning", "entretien", "menager"],
     "repassage": ["ironing", "menage", "linge"],
     "ironing": ["repassage", "linge"],
     # Électricité
-    "electricien": ["electrician", "electricite", "cable", "prise", "disjoncteur", "eclairage"],
+    "electricien": ["electrician", "electricite", "electrique", "cable", "prise", "disjoncteur", "eclairage"],
     "electrician": ["electricien", "electricite", "wiring"],
-    "electricite": ["electricien", "electrician", "cable"],
+    "electricite": ["electricien", "electrician", "electrique", "cable"],
+    "electrique": ["electricien", "electricite", "electrician"],
     # Peinture
     "peintre": ["painter", "peinture", "enduit", "badigeon"],
     "painter": ["peintre", "peinture"],
@@ -47,6 +52,7 @@ _JOB_SYNONYMS = {
     "delivery": ["livraison", "coursier", "livreur"],
     "livreur": ["livraison", "delivery", "coursier"],
     "demenagement": ["moving", "demenageur", "cartons", "transport meubles"],
+    "demenageur": ["demenagement", "moving", "cartons"],
     "moving": ["demenagement", "demenageur"],
     "courses": ["livraison", "errands", "shopping"],
     # Cuisine
@@ -63,19 +69,25 @@ _JOB_SYNONYMS = {
     "garde": ["nounou", "nanny", "babysitter", "enfants"],
     # Coiffure / couture
     "coiffeur": ["hairdresser", "coiffure", "barber", "tresses"],
+    "coiffure": ["coiffeur", "hairdresser", "barber", "tresses"],
     "hairdresser": ["coiffeur", "coiffure"],
     "couturier": ["tailor", "couture", "seamstress", "tailleur"],
+    "couture": ["couturier", "tailor", "tailleur", "seamstress"],
     "tailor": ["couturier", "couture", "tailleur"],
     "tailleur": ["couturier", "tailor", "couture"],
     # Bois / métal
     "menuisier": ["carpenter", "menuiserie", "bois", "ebeniste"],
+    "menuiserie": ["menuisier", "carpenter", "bois", "ebeniste"],
     "carpenter": ["menuisier", "menuiserie"],
     "soudeur": ["welder", "soudure"],
+    "soudure": ["soudeur", "welder"],
     "welder": ["soudeur", "soudure"],
     # Mécanique / clim
     "mecanicien": ["mechanic", "mecanique", "garage", "auto"],
+    "mecanique": ["mecanicien", "mechanic", "garage", "auto"],
     "mechanic": ["mecanicien", "mecanique"],
     "climatisation": ["clim", "hvac", "ac", "froid", "climaticien"],
+    "climaticien": ["climatisation", "clim", "froid", "hvac"],
     "hvac": ["climatisation", "clim"],
     "clim": ["climatisation", "hvac", "froid"],
     # Sécurité
@@ -91,6 +103,7 @@ _JOB_SYNONYMS = {
     "bureautique": ["word", "excel", "formation", "informatique"],
     # Événementiel
     "decoration": ["decorateur", "event", "evenement", "fete"],
+    "decorateur": ["decoration", "event", "evenement", "fete"],
     "photographie": ["photographe", "photo", "shooting"],
     "photographe": ["photographie", "photo", "photographer"],
     "sonorisation": ["sono", "dj", "son", "evenement"],
@@ -154,21 +167,109 @@ _URGENCY_TOKENS = frozenset(
     }
 )
 
-_SUFFIXES = (
-    "euse",
-    "eurs",
+# Plus longs d'abord : plomberie (erie) avant ier, peinture (ure) avant re.
+_STEM_SUFFIXES = (
     "euses",
-    "eur",
-    "iere",
+    "eries",
     "ieres",
+    "iennes",
+    "ments",
+    "tions",
+    "iques",
+    "istes",
+    "ateurs",
+    "atrices",
+    "ations",
+    "euse",
+    "erie",
+    "iere",
+    "iers",
+    "iens",
+    "ienne",
+    "ique",
+    "iste",
+    "ateur",
+    "atrice",
+    "ation",
+    "eurs",
+    "eur",
     "ier",
+    "ien",
+    "ites",
+    "ite",
+    "ages",
+    "age",
+    "ures",
+    "ure",
+    "ants",
+    "ant",
+    "ings",
     "ing",
     "tion",
-    "ments",
     "ment",
+    "er",
+    "re",
+    "e",
 )
 
-_MAX_KEYWORDS = 24
+# Métier ↔ activité : plombier↔plomberie, électricien↔électricité, etc.
+_MORPH_MAP: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("iers", ("erie", "age")),
+    ("ier", ("erie", "age", "iere")),
+    ("erie", ("ier", "iers")),
+    ("iens", ("ite", "ique")),
+    ("ien", ("ite", "ique", "ienne")),
+    ("ienne", ("ien", "ite")),
+    ("ite", ("ien", "iens", "ique")),
+    ("ique", ("ien", "ite")),
+    ("eurs", ("ure", "age", "e")),
+    ("eur", ("ure", "age", "euse", "e")),
+    ("euse", ("eur", "ure")),
+    ("ure", ("eur", "euse", "re")),
+    ("ages", ("eur", "ier", "er")),
+    ("age", ("eur", "ier", "er")),
+    ("ateurs", ("ation",)),
+    ("ateur", ("ation",)),
+    ("atrice", ("ation",)),
+    ("ation", ("ateur", "atrice")),
+    ("er", ("age", "e")),
+    ("re", ("ure",)),
+    ("e", ("er",)),
+)
+
+_ACCENT_CLASS = {
+    "a": "aàáâäãåAÀÁÂÄÃÅ",
+    "e": "eéèêëEÉÈÊË",
+    "i": "iîïìíIÎÏÌÍ",
+    "o": "oôöòóõOÔÖÒÓÕ",
+    "u": "uùûüúUÙÛÜÚ",
+    "c": "cçCÇ",
+    "y": "yÿýYŸÝ",
+    "n": "nñNÑ",
+}
+
+JOB_OFFER_SEARCH_FIELDS = (
+    "title",
+    "description",
+    "responsability",
+    "location",
+    "category__name",
+    "sub_category__name",
+)
+
+WORKER_SEARCH_FIELDS = (
+    "title__name",
+    "job_types__name",
+    "category__name",
+    "skills",
+    "certifications",
+    "user__first_name",
+    "user__last_name",
+    "user__bio",
+)
+
+_MAX_KEYWORDS = 36
+_MIN_STEM_LEN = 4
 _SYNONYM_INDEX: Optional[Dict[str, List[str]]] = None
 
 
@@ -184,14 +285,75 @@ def _normalize_token(token: str) -> str:
 
 
 def _stem(token: str) -> str:
+    """Racine FR partagée : plombier/plomberie → plomb, carreleur/carrelage → carrel."""
     if len(token) < 5:
         return token
-    for suffix in _SUFFIXES:
-        if token.endswith(suffix) and len(token) - len(suffix) >= 3:
-            return token[: -len(suffix)]
+    for suffix in _STEM_SUFFIXES:
+        stem = token[: -len(suffix)] if token.endswith(suffix) else ""
+        if stem and len(stem) >= _MIN_STEM_LEN:
+            return stem
     if token.endswith("s") and len(token) > 4:
         return token[:-1]
     return token
+
+
+def _morph_variants(token: str) -> List[str]:
+    """Variantes métier ↔ activité par substitution de suffixe (le plus long d'abord)."""
+    if len(token) < 5:
+        return []
+    variants: List[str] = []
+    seen = {token}
+    for suffix, targets in _MORPH_MAP:
+        if not token.endswith(suffix):
+            continue
+        stem = token[: -len(suffix)]
+        min_stem = 4 if suffix in {"age", "ages", "e", "er", "re"} else 3
+        if len(stem) < min_stem:
+            continue
+        for target in targets:
+            candidate = stem + target
+            if candidate not in seen and len(candidate) >= 4:
+                seen.add(candidate)
+                variants.append(candidate)
+        break
+    stemmed = _stem(token)
+    if stemmed not in seen and len(stemmed) >= _MIN_STEM_LEN:
+        variants.append(stemmed)
+    return variants
+
+
+def _accent_insensitive_regex(text: str) -> str:
+    """Sous-chaîne regex insensible aux accents (Électricité ~ electricite)."""
+    if not text:
+        return ""
+    parts: List[str] = []
+    for ch in text:
+        folded = _strip_accents(ch.lower())
+        if folded in _ACCENT_CLASS:
+            parts.append("[" + _ACCENT_CLASS[folded] + "]")
+        elif ch.isalnum() or ch in " -'":
+            parts.append(re.escape(ch) if ch in r".$^?*+{}[]\\|" else ch)
+        else:
+            parts.append(re.escape(ch))
+    return "".join(parts)
+
+
+def keywords_to_q(keywords: Sequence[str], fields: Sequence[str]) -> Q:
+    """OR sur tous les champs × tous les mots-clés (accents ignorés)."""
+    q_objects = Q()
+    seen_patterns: Set[str] = set()
+    for kw in keywords:
+        cleaned = (kw or "").strip()
+        if not cleaned:
+            continue
+        pattern = _accent_insensitive_regex(cleaned)
+        if not pattern or pattern in seen_patterns:
+            continue
+        seen_patterns.add(pattern)
+        for field in fields:
+            q_objects |= Q(**{f"{field}__iregex": pattern})
+            q_objects |= Q(**{f"{field}__icontains": cleaned})
+    return q_objects
 
 
 def _synonym_index() -> Dict[str, List[str]]:
@@ -218,13 +380,16 @@ def _synonym_index() -> Dict[str, List[str]]:
                 cleaned = (extra or "").strip()
                 if cleaned and cleaned not in bucket:
                     bucket.append(cleaned)
-            stemmed = _stem(_normalize_token(term))
-            if stemmed and stemmed != _normalize_token(term):
-                stem_bucket = _bucket_for(stemmed)
+            folded = _normalize_token(term)
+            aliases = {folded, _stem(folded), *_morph_variants(folded)}
+            for alias in aliases:
+                if not alias or alias == folded:
+                    continue
+                alias_bucket = _bucket_for(alias)
                 for extra in group:
                     cleaned = (extra or "").strip()
-                    if cleaned and cleaned not in stem_bucket:
-                        stem_bucket.append(cleaned)
+                    if cleaned and cleaned not in alias_bucket:
+                        alias_bucket.append(cleaned)
 
     _SYNONYM_INDEX = index
     return index
@@ -285,13 +450,19 @@ def expand_search_query(query: str) -> List[str]:
 
         _add(raw)
         _add(normalized)
+        morphs = _morph_variants(normalized)
+        for variant in morphs:
+            _add(variant)
         stemmed = _stem(normalized)
         _add(stemmed)
 
-        for extra in index.get(normalized, []):
-            _add(extra)
-        if stemmed != normalized:
-            for extra in index.get(stemmed, []):
+        lookup_keys = [normalized, stemmed, *morphs]
+        seen_lookups: Set[str] = set()
+        for lookup in lookup_keys:
+            if not lookup or lookup in seen_lookups:
+                continue
+            seen_lookups.add(lookup)
+            for extra in index.get(lookup, []):
                 _add(extra)
 
     return expanded

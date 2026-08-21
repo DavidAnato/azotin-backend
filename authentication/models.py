@@ -55,21 +55,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         default="",
         help_text="worker ou employer (client).",
     )
-    KYC_STATUS_CHOICES = (
-        ("none", "Aucun"),
-        ("pending", "En attente"),
-        ("approved", "Approuvé"),
-        ("rejected", "Rejeté"),
-    )
-    kyc_status = models.CharField(
-        max_length=20,
-        choices=KYC_STATUS_CHOICES,
-        default="none",
-        db_index=True,
-    )
-    kyc_submitted_at = models.DateTimeField(null=True, blank=True)
-    kyc_id_type = models.CharField(max_length=50, blank=True, default="")
-    kyc_id_number = models.CharField(max_length=100, blank=True, default="")
 
     # Preferences
     THEME_CHOICES = (
@@ -125,11 +110,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         if not self.bg_color or not self.text_color:
             self.bg_color, self.text_color = self.generate_contrasting_colors()
 
-        if self.is_certified and self.kyc_status in ("", "none"):
-            self.kyc_status = "approved"
-        if self.kyc_status == "approved":
-            self.is_certified = True
-
         if self.pk and self.profile_picture:
             try:
                 old_profile_picture = User.objects.get(pk=self.pk).profile_picture
@@ -172,6 +152,53 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+
+class KycSubmission(models.Model):
+    """Dossier KYC courant (un par utilisateur)."""
+
+    STATUS_CHOICES = (
+        ("none", "Aucun"),
+        ("pending", "En attente"),
+        ("approved", "Approuvé"),
+        ("rejected", "Rejeté"),
+    )
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="kyc_submission"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="none",
+        db_index=True,
+    )
+    full_name = models.CharField(max_length=200, blank=True, default="")
+    id_type = models.CharField(max_length=50, blank=True, default="")
+    id_number = models.CharField(max_length=100, blank=True, default="")
+    id_document = models.ImageField(
+        upload_to="kyc/id_documents/", blank=True, null=True
+    )
+    selfie = models.ImageField(upload_to="kyc/selfies/", blank=True, null=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Dossier KYC"
+        verbose_name_plural = "Dossiers KYC"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        certified = self.status == "approved"
+        if self.user.is_certified != certified:
+            type(self.user).objects.filter(pk=self.user_id).update(
+                is_certified=certified
+            )
+            self.user.is_certified = certified
+
+    def __str__(self):
+        return f"KYC {self.user_id} ({self.status})"
 
 
 class Review(models.Model):

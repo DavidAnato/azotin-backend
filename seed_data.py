@@ -14,8 +14,8 @@ Variables d'environnement :
 Images (si réseau) : photos de travail/chantier pour les offres, portraits pour les profils.
 
 Comptes (mot de passe password123) :
-  2290156543880 — David Anato, client (PIN 0000)
   22997000000   — démo mobile, travailleur (PIN 1234)
+  22997000001   — Amina Koffi, cliente (PIN 1234)
 """
 from __future__ import annotations
 
@@ -372,23 +372,6 @@ CATEGORIES = [
 ]
 
 DEMO_USERS = [
-    {
-        "phone": "2290156543880",
-        "email": "david.anato@azotin.local",
-        "first_name": "David",
-        "last_name": "Anato",
-        "code_pin": "0000",
-        "role": "client",
-        "city": "Cotonou",
-        "gender": "male",
-        "bio": "Entrepreneur à Cotonou. Je publie régulièrement des missions pour mon appartement et mon bureau.",
-        "is_certified": True,
-        "service_name": "Agence Anato & Co",
-        "service_type": "business",
-        "service_description": "PME locale — besoins récurrents en maintenance, livraison et services à domicile.",
-        "location_description": "Siège Akpakpa, interventions sur Grand-Nokoué.",
-        "avatar_seed": "david_anato",
-    },
     {
         "phone": "22997000000",
         "email": "demo.mobile@azotin.local",
@@ -1412,13 +1395,12 @@ def seed_escrow(users: list[User]):
                 processed_at=now - timedelta(days=2),
             )
 
-    # Client David : au moins un contrat en attente de paiement
-    david = next((u for u in users if u.phone_number == "2290156543880"), None)
-    if david and not Contract.objects.filter(client=david).exists() and jobs:
+    # Cliente démo : au moins un contrat en attente de paiement
+    amina = next((u for u in users if u.phone_number == "22997000001"), None)
+    if amina and not Contract.objects.filter(client=amina).exists() and jobs:
         job = jobs[0]
-        if job.client.user_id != david.id:
-            # Prendre un job du client David si possible
-            own = next((j for j in jobs if j.client.user_id == david.id), None)
+        if job.client.user_id != amina.id:
+            own = next((j for j in jobs if j.client.user_id == amina.id), None)
             job = own or job
         if not Contract.objects.filter(job=job).exists():
             offer = job.job_offer
@@ -1490,7 +1472,7 @@ def create_conversation(user_a: User, user_b: User, lines: list[str], offer=None
 
 
 def seed_messages(users_by_phone: dict[str, User], offers: list[JobOffer]):
-    david = users_by_phone.get("2290156543880")
+    amina = users_by_phone.get("22997000001")
     demo = users_by_phone.get("22997000000")
     workers = [
         users_by_phone[p]
@@ -1498,29 +1480,28 @@ def seed_messages(users_by_phone: dict[str, User], offers: list[JobOffer]):
         if p in users_by_phone
     ]
     count = 0
-    if david and offers:
+    if amina and offers:
         for i, w in enumerate(workers):
             offer = offers[i % len(offers)]
             scenario = random.choice(CHAT_SCENARIOS)
             lines = [
-                line.format(title=offer.title, city=david.city or "Cotonou")
+                line.format(title=offer.title, city=amina.city or "Cotonou")
                 for line in scenario
             ]
-            create_conversation(david, w, lines, offer)
+            create_conversation(amina, w, lines, offer)
             count += 1
-    if demo and david:
+    if demo and amina:
         create_conversation(
             demo,
-            david,
+            amina,
             [
-                "Bonjour David, la mission livraison est terminée.",
+                "Bonjour, la mission livraison est terminée.",
                 "Merci Demo ! Tu peux m'envoyer les photos ?",
                 "Oui, tout est livré et signé.",
                 "Parfait, je valide le paiement ce soir.",
             ],
         )
         count += 1
-    amina = users_by_phone.get("22997000001")
     if amina and workers:
         create_conversation(
             amina,
@@ -1537,17 +1518,17 @@ def seed_messages(users_by_phone: dict[str, User], offers: list[JobOffer]):
 
 
 def seed_user_notifications(users: list[User], offers: list[JobOffer]):
-    david = next((u for u in users if u.phone_number == "2290156543880"), None)
+    amina = next((u for u in users if u.phone_number == "22997000001"), None)
     demo = next((u for u in users if u.phone_number == "22997000000"), None)
     if not offers:
         return
     specs = [
-        (david, "Nouvelle candidature sur « Réparation fuite ».", {"type": "new_application", "job_offer_id": offers[0].id}),
-        (david, "Kofi a postulé à votre offre électricité.", {"type": "new_application", "job_offer_id": offers[1].id, "applicant_name": "Kofi Mensah"}),
+        (amina, "Nouvelle candidature sur « Réparation fuite ».", {"type": "new_application", "job_offer_id": offers[0].id}),
+        (amina, "Kofi a postulé à votre offre électricité.", {"type": "new_application", "job_offer_id": offers[1].id, "applicant_name": "Kofi Mensah"}),
         (demo, "Mission assignée — livraison colis.", {"type": "job_assigned", "job_offer_id": offers[4].id}),
-        (david, "Nouveau message de Aïcha.", {"type": "new_message", "conversation_id": 1}),
+        (amina, "Nouveau message de Aïcha.", {"type": "new_message", "conversation_id": 1}),
         (demo, "Bienvenue sur AZOTIN !", {"type": "new_user"}),
-        (david, "Marc a aimé votre profil travailleur.", {"type": "profile_view"}),
+        (amina, "Marc a aimé votre profil travailleur.", {"type": "profile_view"}),
     ]
     for recipient, msg, obj in specs:
         if not recipient:
@@ -1605,8 +1586,8 @@ def _run_seed(skip_network: bool):
     seed_paid_service()
 
     logger.info("--- Comptes ---")
-    logger.info("David Anato : 2290156543880 / PIN 0000")
     logger.info("Démo mobile : 22997000000 / PIN 1234")
+    logger.info("Cliente démo : 22997000001 / PIN 1234")
     logger.info("Mot de passe : %s", DEFAULT_PASSWORD)
     logger.info(
         "=== Terminé (%d offres, %d users, %d contrats, %d wallets) ===",

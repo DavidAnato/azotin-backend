@@ -9,6 +9,7 @@ from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from rest_framework import generics, permissions, status, views
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,8 +21,8 @@ from app_profile.serializers import (
     PreviousWorkPhotoSerializer,
     WorkerProfileSerializer,
 )
-from authentication.models import UserSettings
-from authentication.kyc import effective_kyc_status
+from authentication.models import KycSubmission, UserSettings
+from authentication.kyc import effective_kyc_status, get_kyc_submission
 
 from .otp_service import otp_service_ready, send_otp, verify_otp
 from .serializers import (
@@ -79,10 +80,12 @@ def _otp_failure_response(payload):
             },
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-    return Response(
-        {"error": (payload or {}).get("error", "Échec de l'envoi du code OTP.")},
-        status=status.HTTP_400_BAD_REQUEST,
-    )
+    body = {
+        "error": (payload or {}).get("error", "Échec de l'envoi du code OTP."),
+    }
+    if (payload or {}).get("details"):
+        body["details"] = payload["details"]
+    return Response(body, status=status.HTTP_400_BAD_REQUEST)
 
 
 def create_user_profile(user, profile_type: str) -> None:
@@ -110,6 +113,7 @@ class UserRegisterView(generics.CreateAPIView):
 
         try:
             phone_number = serializer.validated_data.get("phone_number")
+            channel = serializer.validated_data.get("channel") or "sms"
             if phone_number:
                 if not otp_service_ready():
                     return _otp_unavailable_response()
@@ -117,9 +121,14 @@ class UserRegisterView(generics.CreateAPIView):
                 success, response = send_otp(
                     phone_number=phone_number,
                     api_key=settings.GETOURVOICE_API_KEY,
+                    channel=channel,
                 )
 
                 if not success:
+                    logger.error(
+                        "Inscription: échec envoi OTP (%s)",
+                        (response or {}).get("error"),
+                    )
                     return _otp_failure_response(response)
 
                 # Si l'envoi OTP a réussi, créer l'utilisateur
@@ -131,7 +140,10 @@ class UserRegisterView(generics.CreateAPIView):
                     user, serializer.validated_data["profile_type"]
                 )
 
-                payload = {"message": "Code OTP envoyé avec succès."}
+                payload = {
+                    "message": "Code OTP envoyé avec succès.",
+                    "channel": channel,
+                }
                 if getattr(settings, "OTP_SKIP_SMS", False):
                     payload["dev_otp"] = getattr(settings, "DEV_OTP_CODE", "00000")
                 return Response(payload, status=status.HTTP_201_CREATED)
@@ -158,6 +170,7 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone_number = serializer.validated_data["phone_number"]
+        channel = serializer.validated_data.get("channel") or "sms"
 
         try:
             # Vérifier si l'utilisateur existe
@@ -166,17 +179,25 @@ class PhoneNumberValidateRequestView(generics.CreateAPIView):
             if not otp_service_ready():
                 return _otp_unavailable_response()
 
-            # Envoyer l'OTP via GetOurVoice
+            # Envoyer l'OTP via GetOurVoice (SMS)
             success, response = send_otp(
                 phone_number=phone_number,
                 api_key=settings.GETOURVOICE_API_KEY,
+                channel=channel,
             )
 
             # Vérifier si l'envoi a réussi
             if not success:
+                logger.error(
+                    "Demande OTP: échec envoi (%s)",
+                    (response or {}).get("error"),
+                )
                 return _otp_failure_response(response)
 
-            payload = {"message": "Code OTP envoyé avec succès."}
+            payload = {
+                "message": "Code OTP envoyé avec succès.",
+                "channel": channel,
+            }
             if getattr(settings, "OTP_SKIP_SMS", False):
                 payload["dev_otp"] = getattr(settings, "DEV_OTP_CODE", "00000")
             return Response(payload, status=status.HTTP_200_OK)
@@ -898,63 +919,66 @@ class DeleteAccountView(APIView):
 
 
 class KYCView(APIView):
-    """Consultation et dépôt KYC (métadonnées pièce d'identité)."""
+    """Consultation et dépôt KYC (pièce d'identité, selfie, nom)."""
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def _payload(self, user, submission=None):
+        submission = submission if submission is not None else get_kyc_submission(user)
+        status_value = effective_kyc_status(user)
+        return {
+            "kyc_status": status_value,
+            "kyc_submitted_at": submission.submitted_at if submission else None,
+            "is_certified": bool(user.is_certified) or status_value == "approved",
+            "id_type": (submission.id_type if submission else "") or "",
+            "id_number": (submission.id_number if submission else "") or "",
+            "has_id_document": bool(submission and submission.id_document),
+            "has_selfie": bool(submission and submission.selfie),
+        }
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-        return Response(
-            {
-                "kyc_status": effective_kyc_status(user),
-                "kyc_submitted_at": user.kyc_submitted_at,
-                "is_certified": bool(user.is_certified),
-                "id_type": user.kyc_id_type or "",
-                "id_number": user.kyc_id_number or "",
-            }
-        )
+        return Response(self._payload(request.user))
 
     def post(self, request, *args, **kwargs):
         serializer = KYCSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
-        user.kyc_id_type = serializer.validated_data.get("id_type") or user.kyc_id_type
-        user.kyc_id_number = (
-            serializer.validated_data.get("id_number") or user.kyc_id_number
-        )
-        full_name = (serializer.validated_data.get("full_name") or "").strip()
+        data = serializer.validated_data
+
+        submission, _ = KycSubmission.objects.get_or_create(user=user)
+        submission.id_type = data.get("id_type") or submission.id_type
+        submission.id_number = data.get("id_number") or submission.id_number
+
+        full_name = (data.get("full_name") or "").strip()
         name_fields = []
         if full_name:
+            submission.full_name = full_name
             parts = full_name.split(None, 1)
             user.first_name = parts[0]
             name_fields.append("first_name")
             if len(parts) > 1:
                 user.last_name = parts[1]
                 name_fields.append("last_name")
-        user.kyc_submitted_at = timezone.now()
-        if user.is_certified or user.kyc_status == "approved":
-            user.kyc_status = "approved"
-            user.is_certified = True
+            if name_fields:
+                user.save(update_fields=name_fields)
+
+        doc = data.get("id_document") or data.get("piece")
+        selfie = data.get("selfie")
+        if doc:
+            submission.id_document = doc
+        if selfie:
+            submission.selfie = selfie
+
+        submission.submitted_at = timezone.now()
+        if user.is_certified or submission.status == "approved":
+            submission.status = "approved"
+            submission.reviewed_at = submission.reviewed_at or timezone.now()
         else:
-            user.kyc_status = "pending"
-        user.save(
-            update_fields=[
-                "kyc_id_type",
-                "kyc_id_number",
-                "kyc_submitted_at",
-                "kyc_status",
-                "is_certified",
-                *name_fields,
-            ]
-        )
-        return Response(
-            {
-                "kyc_status": effective_kyc_status(user),
-                "kyc_submitted_at": user.kyc_submitted_at,
-                "is_certified": bool(user.is_certified),
-                "id_type": user.kyc_id_type or "",
-                "id_number": user.kyc_id_number or "",
-                "detail": "Dossier KYC enregistré.",
-            },
-            status=status.HTTP_200_OK,
-        )
+            submission.status = "pending"
+            submission.reviewed_at = None
+        submission.save()
+
+        body = self._payload(user, submission)
+        body["detail"] = "Dossier KYC enregistré."
+        return Response(body, status=status.HTTP_200_OK)

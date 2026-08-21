@@ -9,6 +9,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from app_job.models import JobOffer
+from app_job.search import (
+    WORKER_SEARCH_FIELDS,
+    expand_search_query,
+    keywords_to_q,
+)
 from authentication.models import UserSettings
 from authentication.serializers import UserSerializer, UserSettingsSerializer
 
@@ -347,13 +352,12 @@ class WorkerProfileSearchView(generics.ListAPIView):
     def apply_search(self, queryset):
         search_query = self.request.query_params.get("query", "").strip()
         if search_query:
-            queryset = queryset.filter(
-                Q(title__name__icontains=search_query)
-                | Q(job_types__name__icontains=search_query)
-                | Q(category__name__icontains=search_query)
-                | Q(user__first_name__icontains=search_query)
-                | Q(user__last_name__icontains=search_query)
-            ).distinct()
+            keywords = expand_search_query(search_query)
+            if not keywords:
+                keywords = [search_query]
+            q_objects = keywords_to_q(keywords, WORKER_SEARCH_FIELDS)
+            if q_objects:
+                queryset = queryset.filter(q_objects).distinct()
         return queryset
 
     def apply_filters(self, queryset):

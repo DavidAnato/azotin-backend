@@ -54,7 +54,8 @@ if not config("EMAIL_HOST_USER", default="") or not config(
 ):
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# Inscription : pas de SMS GetOurVoice, code OTP fixe (5 chiffres)
+# Inscription : True = aucun SMS réel (code DEV_OTP_CODE).
+# False = envoi GetOurVoice SMS.
 OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=True, cast=bool)
 DEV_OTP_CODE = config("DEV_OTP_CODE", default="00000")
 

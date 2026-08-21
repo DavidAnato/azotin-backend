@@ -14,10 +14,30 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-from decouple import config
+from decouple import AutoConfig, RepositoryEnv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Toujours lire jobhub_api/.env (indépendamment du CWD).
+config = AutoConfig(search_path=str(BASE_DIR))
+
+_DOTENV_PATH = BASE_DIR / ".env"
+_DOTENV_DATA = (
+    RepositoryEnv(str(_DOTENV_PATH)).data if _DOTENV_PATH.is_file() else {}
+)
+
+
+def _prefers_dotenv(name: str, default: str = "") -> str:
+    """Valeur du .env projet, puis os.environ.
+
+    python-decouple priorise os.environ : sous PowerShell, une clé Sanctum
+    `id|token` exportée sans quotes est tronquée au `|` et masque le .env.
+    """
+    file_val = (_DOTENV_DATA.get(name) or "").strip()
+    if file_val:
+        return file_val
+    return (config(name, default=default) or "").strip()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -257,11 +277,15 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 #     },
 # }
 
-# GetOurVoice OTP : uniquement GETOURVOICE_API_KEY (pas d'APP_ID)
-GETOURVOICE_API_KEY = config("GETOURVOICE_API_KEY", default="")
+# GetOurVoice OTP — https://api-docs.getourvoice.com/otp
+# Auth : Authorization Bearer GETOURVOICE_API_KEY (pas X-Api-Key)
+# Corps : send_to + (app_id XOR app_name) + channel=sms
+GETOURVOICE_API_KEY = _prefers_dotenv("GETOURVOICE_API_KEY")
+GETOURVOICE_APP_ID = _prefers_dotenv("GETOURVOICE_APP_ID")
+GETOURVOICE_APP_NAME = _prefers_dotenv("GETOURVOICE_APP_NAME")
 OURVOICE_API_KEY = GETOURVOICE_API_KEY  # alias interne (notifications SMS)
 
-# OTP inscription (désactiver l'envoi SMS en dev)
+# OTP inscription (True = aucun SMS réel ; code DEV_OTP_CODE)
 OTP_SKIP_SMS = config("OTP_SKIP_SMS", default=False, cast=bool)
 DEV_OTP_CODE = config("DEV_OTP_CODE", default="00000")
 

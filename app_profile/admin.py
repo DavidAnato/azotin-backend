@@ -1,8 +1,6 @@
 from django.contrib import admin
 
-from .models import ClientProfile, PreviousWorkPhoto, WorkerProfile
-
-# Register your models here.
+from .models import ClientProfile, FavoriteWorker, PreviousWorkPhoto, WorkerProfile
 
 
 class PreviousWorkPhotoInline(admin.TabularInline):
@@ -19,6 +17,7 @@ class WorkerProfileAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "title",
+                    "job_types",
                     "category",
                     "skills",
                     "experience",
@@ -31,6 +30,7 @@ class WorkerProfileAdmin(admin.ModelAdmin):
             },
         ),
     )
+    filter_horizontal = ("job_types",)
     inlines = [PreviousWorkPhotoInline]
     list_display = (
         "user",
@@ -41,6 +41,17 @@ class WorkerProfileAdmin(admin.ModelAdmin):
     )
     list_filter = ("category", "available_for_hire")
     search_fields = ("user__first_name", "user__last_name", "skills", "certifications")
+    raw_id_fields = ("user",)
+
+
+@admin.register(PreviousWorkPhoto)
+class PreviousWorkPhotoAdmin(admin.ModelAdmin):
+    list_display = ("id", "worker_profile", "photo")
+    search_fields = (
+        "worker_profile__user__first_name",
+        "worker_profile__user__last_name",
+    )
+    raw_id_fields = ("worker_profile",)
 
 
 @admin.register(ClientProfile)
@@ -51,6 +62,7 @@ class ClientProfileAdmin(admin.ModelAdmin):
             "Informations de base",
             {
                 "fields": (
+                    "category",
                     "preferred_payment_method",
                     "average_spent",
                     "loyalty_points",
@@ -74,3 +86,18 @@ class ClientProfileAdmin(admin.ModelAdmin):
         "service_name",
         "service_description",
     )
+    raw_id_fields = ("user",)
+
+
+@admin.register(FavoriteWorker)
+class FavoriteWorkerAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "worker_profile", "created_at")
+    list_filter = ("created_at",)
+    search_fields = (
+        "user__first_name",
+        "user__last_name",
+        "worker_profile__user__first_name",
+        "worker_profile__user__last_name",
+    )
+    raw_id_fields = ("user", "worker_profile")
+    readonly_fields = ("created_at", "updated_at")

@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from authentication.models import Review, UserSettings
+from authentication.otp_service import DEFAULT_OTP_CHANNEL, OTP_CHANNELS
 from jobhub_api.ai_sanitize import sanitize_ai_text
 
 User = get_user_model()
@@ -87,6 +88,26 @@ class UserSerializer(serializers.ModelSerializer):
         return url
 
 
+class OtpChannelField(serializers.ChoiceField):
+    """Canal OTP GetOurVoice : sms uniquement (whatsapp ignoré, défaut sms)."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("choices", [(c, c) for c in OTP_CHANNELS])
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("default", DEFAULT_OTP_CHANNEL)
+        kwargs.setdefault("write_only", True)
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        if data in (None, ""):
+            return DEFAULT_OTP_CHANNEL
+        if isinstance(data, str):
+            data = data.strip().lower()
+        if data == "whatsapp":
+            return DEFAULT_OTP_CHANNEL
+        return super().to_internal_value(data)
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Serializer for registering a new user.
@@ -96,12 +117,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         choices=[("worker", "Travailleur"), ("employer", "Client")],
         write_only=True,
     )
+    channel = OtpChannelField()
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "phone_number", "profile_type"]
+        fields = [
+            "first_name",
+            "last_name",
+            "phone_number",
+            "profile_type",
+            "channel",
+        ]
 
     def create(self, validated_data):
+        validated_data.pop("channel", None)
         profile_type = validated_data.pop("profile_type", None)
         user = User.objects.create(**validated_data)
         if profile_type:
@@ -112,6 +141,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class PhoneNumberValidateRequestSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
+    channel = OtpChannelField()
 
 
 class PhoneNumberValidateConfirmSerializer(serializers.Serializer):
@@ -313,6 +343,9 @@ class KYCSerializer(serializers.Serializer):
     id_type = serializers.CharField(required=False, allow_blank=True, default="")
     id_number = serializers.CharField(required=False, allow_blank=True, default="")
     full_name = serializers.CharField(required=False, allow_blank=True, default="")
+    id_document = serializers.ImageField(required=False, allow_null=True)
+    piece = serializers.ImageField(required=False, allow_null=True)
+    selfie = serializers.ImageField(required=False, allow_null=True)
     kyc_status = serializers.CharField(read_only=True)
     kyc_submitted_at = serializers.DateTimeField(read_only=True)
     is_certified = serializers.BooleanField(read_only=True)

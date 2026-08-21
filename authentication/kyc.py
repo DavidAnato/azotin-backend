@@ -1,5 +1,6 @@
 """Helpers KYC — statut effectif et gate postuler / créer une offre."""
 
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -7,10 +8,20 @@ _APPROVED_ALIASES = frozenset({"approved", "certified", "verified"})
 _KNOWN = frozenset({"none", "pending", "approved", "rejected"})
 
 
+def get_kyc_submission(user):
+    try:
+        return user.kyc_submission
+    except ObjectDoesNotExist:
+        return None
+
+
 def effective_kyc_status(user) -> str:
     if getattr(user, "is_certified", False):
         return "approved"
-    raw = getattr(user, "kyc_status", None) or "none"
+    submission = get_kyc_submission(user)
+    if submission is None:
+        return "none"
+    raw = getattr(submission, "status", None) or "none"
     status_value = str(raw).strip().lower() or "none"
     if status_value in _APPROVED_ALIASES:
         return "approved"

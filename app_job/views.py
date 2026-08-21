@@ -27,10 +27,12 @@ from .models import (
     SubCategory,
 )
 from .search import (
+    JOB_OFFER_SEARCH_FIELDS,
     compute_match_score,
     expand_search_query,
     has_only_urgency_keywords,
     has_urgency_intent,
+    keywords_to_q,
 )
 from .serializers import (
     CategorySerializer,
@@ -448,7 +450,8 @@ class JobOfferSuggestionListView(generics.ListAPIView):
             # Filtrer par sous-catégorie
             if worker_profile.title:
                 sub_category_offers = JobOffer.objects.filter(
-                    sub_category=worker_profile.title
+                    sub_category=worker_profile.title,
+                    is_filled=False,
                 )
                 # Union des résultats
                 jobs_offers = jobs_offers | sub_category_offers
@@ -600,18 +603,11 @@ class JobSearchView(generics.ListAPIView):
         self._urgency_intent = False
         if query and str(query).strip():
             keywords = expand_search_query(query)
+            if not keywords:
+                keywords = [str(query).strip()]
             self._search_keywords = keywords
             self._urgency_intent = has_urgency_intent(keywords)
-            q_objects = Q()
-            for kw in keywords:
-                q_objects |= (
-                    Q(title__icontains=kw)
-                    | Q(description__icontains=kw)
-                    | Q(responsability__icontains=kw)
-                    | Q(location__icontains=kw)
-                    | Q(category__name__icontains=kw)
-                    | Q(sub_category__name__icontains=kw)
-                )
+            q_objects = keywords_to_q(keywords, JOB_OFFER_SEARCH_FIELDS)
             if has_only_urgency_keywords(str(query).replace(",", " ").split()):
                 q_objects |= Q(is_urgent=True)
             queryset = queryset.filter(q_objects).distinct()
