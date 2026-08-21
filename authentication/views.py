@@ -108,14 +108,52 @@ class UserRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
+        raw = request.data
+        try:
+            raw_dict = raw.dict() if hasattr(raw, "dict") else dict(raw)
+        except Exception:
+            raw_dict = {"_unreadable": repr(raw)[:500]}
+
+        phone_raw = raw_dict.get("phone_number")
+        logger.warning(
+            "[register] reçu content_type=%s method=%s keys=%s "
+            "phone_number=%r phone_type=%s phone_len=%s "
+            "first_name=%r last_name=%r profile_type=%r channel=%r body=%s",
+            getattr(request, "content_type", None),
+            request.method,
+            list(raw_dict.keys()),
+            phone_raw,
+            type(phone_raw).__name__,
+            len(str(phone_raw)) if phone_raw is not None else None,
+            raw_dict.get("first_name"),
+            raw_dict.get("last_name"),
+            raw_dict.get("profile_type"),
+            raw_dict.get("channel"),
+            {k: raw_dict.get(k) for k in raw_dict if k != "password"},
+        )
+
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning(
+                "[register] validation échouée errors=%s phone=%r body=%s",
+                serializer.errors,
+                phone_raw,
+                raw_dict,
+            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             phone_number = serializer.validated_data.get("phone_number")
             channel = serializer.validated_data.get("channel") or "sms"
+            logger.warning(
+                "[register] validé phone=%r channel=%s profile_type=%s",
+                phone_number,
+                channel,
+                serializer.validated_data.get("profile_type"),
+            )
             if phone_number:
                 if not otp_service_ready():
+                    logger.error("[register] OTP service non configuré (GETOURVOICE_API_KEY)")
                     return _otp_unavailable_response()
 
                 success, response = send_otp(
@@ -126,8 +164,9 @@ class UserRegisterView(generics.CreateAPIView):
 
                 if not success:
                     logger.error(
-                        "Inscription: échec envoi OTP (%s)",
-                        (response or {}).get("error"),
+                        "[register] échec envoi OTP phone=%r otp_response=%s",
+                        phone_number,
+                        response,
                     )
                     return _otp_failure_response(response)
 
@@ -140,6 +179,12 @@ class UserRegisterView(generics.CreateAPIView):
                     user, serializer.validated_data["profile_type"]
                 )
 
+                logger.warning(
+                    "[register] OK user_id=%s phone=%r channel=%s",
+                    user.id,
+                    phone_number,
+                    channel,
+                )
                 payload = {
                     "message": "Code OTP envoyé avec succès.",
                     "channel": channel,
@@ -150,12 +195,20 @@ class UserRegisterView(generics.CreateAPIView):
             else:
                 # Si pas de numéro de téléphone, créer l'utilisateur directement
                 user = serializer.save()
+                logger.warning("[register] OK sans téléphone user_id=%s", user.id)
                 return Response(
                     {"message": "Compte créé avec succès."},
                     status=status.HTTP_201_CREATED,
                 )
 
         except Exception as e:
+            logger.exception(
+                "[register] exception phone=%r err=%s",
+                serializer.validated_data.get("phone_number")
+                if serializer.validated_data
+                else phone_raw,
+                e,
+            )
             return Response(
                 {"error": f"Erreur lors de l'inscription: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
