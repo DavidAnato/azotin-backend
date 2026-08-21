@@ -191,6 +191,14 @@ def send_otp(
     api_key = (api_key or _ourvoice_api_key()).strip()
     send_to = _normalize_phone(phone_number)
 
+    logger.warning(
+        "[otp.send] phone_in=%r normalized=%r channel_req=%r digits_len=%s",
+        phone_number,
+        send_to,
+        channel,
+        len(send_to) if send_to else 0,
+    )
+
     if not send_to:
         return False, {"error": "Le numéro de téléphone est requis"}
     if not api_key:
@@ -205,10 +213,11 @@ def send_otp(
     try:
         logger.info(
             "GetOurVoice OTP send: url=%s phone=%s channel=%s "
-            "has_app_id=%s has_app_name=%s",
+            "payload_keys=%s has_app_id=%s has_app_name=%s",
             endpoint,
             _phone_for_log(send_to),
             channel_norm,
+            list(payload.keys()),
             "app_id" in payload,
             "app_name" in payload,
         )
