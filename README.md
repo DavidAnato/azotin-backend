@@ -18,16 +18,17 @@ python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-## Seed (optionnel, pas au build Render)
+## Seed (automatique)
 
-Le dashboard Render peut appeler `python seeddata.py` après `collectstatic`.
-Ce script est un **no-op** par défaut (`exit 0`) : le build ne doit pas échouer
-et la prod ne doit pas être re-seedée à chaque deploy.
+Le dashboard Render peut appeler `python seeddata.py` après `collectstatic`,
+et l’entrypoint lance aussi `manage.py seeddata` au démarrage.
 
-Pour charger les données de démonstration (local ou Shell Render one-off) :
+Désactiver : `SKIP_SEED=1`
+
+Manuel :
 
 ```bash
 python manage.py seeddata
 python manage.py seeddata --reset
-RUN_SEED=1 python seeddata.py
+python seeddata.py --reset
 ```

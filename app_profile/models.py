@@ -32,7 +32,7 @@ class WorkerProfile(models.Model):
 
     skills = models.TextField(max_length=500, blank=True)
     experience = models.IntegerField(default=0, help_text="Years of experience")
-    price = models.DecimalField(max_digits=6, decimal_places=0, blank=True, null=True)
+    price = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
     frequency = models.CharField(
         max_length=50,
         blank=True,
@@ -41,6 +41,7 @@ class WorkerProfile(models.Model):
             ("day", "Day"),
             ("week", "Week"),
             ("month", "Month"),
+            ("fixed", "Fixed / forfait"),
         ],
         help_text="Frequency of the job.",
         default="hour",

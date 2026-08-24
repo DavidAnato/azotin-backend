@@ -403,10 +403,15 @@ class WorkerProfileSearchView(generics.ListAPIView):
 
     @staticmethod
     def convert_price(price, from_frequency, to_frequency):
+        if from_frequency == "fixed" or to_frequency == "fixed":
+            return price
         conversion_rates = {
             "hour": {"hour": 1, "day": 8, "week": 40, "month": 160},
             "day": {"hour": 1 / 8, "day": 1, "week": 5, "month": 20},
             "week": {"hour": 1 / 40, "day": 1 / 5, "week": 1, "month": 4},
             "month": {"hour": 1 / 160, "day": 1 / 20, "week": 1 / 4, "month": 1},
         }
-        return price * conversion_rates[from_frequency][to_frequency]
+        try:
+            return price * conversion_rates[from_frequency][to_frequency]
+        except KeyError:
+            return price
