@@ -179,6 +179,9 @@ class KycSubmission(models.Model):
     id_document = models.ImageField(
         upload_to="kyc/id_documents/", blank=True, null=True
     )
+    id_document_back = models.ImageField(
+        upload_to="kyc/id_documents/", blank=True, null=True
+    )
     selfie = models.ImageField(upload_to="kyc/selfies/", blank=True, null=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)

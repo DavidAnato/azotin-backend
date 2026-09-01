@@ -345,6 +345,7 @@ class KYCSerializer(serializers.Serializer):
     full_name = serializers.CharField(required=False, allow_blank=True, default="")
     id_document = serializers.ImageField(required=False, allow_null=True)
     piece = serializers.ImageField(required=False, allow_null=True)
+    piece_verso = serializers.ImageField(required=False, allow_null=True)
     selfie = serializers.ImageField(required=False, allow_null=True)
     kyc_status = serializers.CharField(read_only=True)
     kyc_submitted_at = serializers.DateTimeField(read_only=True)

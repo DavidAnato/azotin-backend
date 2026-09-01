@@ -613,6 +613,16 @@ class PINLoginView(BaseLoginView, generics.GenericAPIView):
         try:
             user = User.objects.get(phone_number=phone_number)
 
+            if not user.is_active:
+                return Response(
+                    {
+                        "code": "account_not_verified",
+                        "detail": "Compte non vérifié. Validez votre numéro par OTP.",
+                        "phone_number": phone_number,
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             if code_pin and user.code_pin != code_pin:
                 return Response(
                     {"code_pin": "Invalid PIN"}, status=status.HTTP_400_BAD_REQUEST
@@ -870,12 +880,19 @@ class CodePINUpdateView(generics.RetrieveUpdateDestroyAPIView):
 class CheckPhoneNumberView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    # check if phone number exist send true or false
-    # c'est methode post
     def post(self, request, *args, **kwargs):
         phone_number = request.data.get("phone_number")
-        user = User.objects.filter(phone_number=phone_number).exists()
-        return Response({"exists": user}, status=status.HTTP_200_OK)
+        user = User.objects.filter(phone_number=phone_number).first()
+        if not user:
+            return Response({"exists": False}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "exists": True,
+                "is_active": bool(user.is_active),
+                "has_pin": bool(user.code_pin),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserSettingsView(APIView):
@@ -1017,9 +1034,12 @@ class KYCView(APIView):
                 user.save(update_fields=name_fields)
 
         doc = data.get("id_document") or data.get("piece")
+        doc_back = data.get("piece_verso")
         selfie = data.get("selfie")
         if doc:
             submission.id_document = doc
+        if doc_back:
+            submission.id_document_back = doc_back
         if selfie:
             submission.selfie = selfie
 
