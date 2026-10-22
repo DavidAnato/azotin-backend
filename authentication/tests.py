@@ -321,7 +321,7 @@ class OTPConfigTests(APITestCase):
         OTP_SKIP_SMS=False,
         GETOURVOICE_API_KEY="gov-test-key",
         GETOURVOICE_APP_ID="",
-        GETOURVOICE_APP_NAME="Azɔtɛn",
+        GETOURVOICE_APP_NAME="Azɔbatɛn",
     )
     @patch("authentication.otp_service.requests.post")
     def test_send_otp_uses_app_name_when_no_app_id(self, mock_post):
@@ -331,7 +331,7 @@ class OTPConfigTests(APITestCase):
         ok, _ = send_otp("22970000112")
         self.assertTrue(ok)
         payload = mock_post.call_args.kwargs["json"]
-        self.assertEqual(payload.get("app_name"), "Azɔtɛn")
+        self.assertEqual(payload.get("app_name"), "Azɔbatɛn")
         self.assertNotIn("app_id", payload)
         self.assertEqual(payload.get("channel"), "sms")
 
@@ -393,7 +393,7 @@ class OTPConfigTests(APITestCase):
         OTP_SKIP_SMS=False,
         GETOURVOICE_API_KEY="gov-test-key",
         GETOURVOICE_APP_ID="",
-        GETOURVOICE_APP_NAME="Azɔtɛn",
+        GETOURVOICE_APP_NAME="Azɔbatɛn",
     )
     @patch("authentication.otp_service.requests.post")
     def test_send_otp_sms_channel(self, mock_post):
@@ -404,14 +404,14 @@ class OTPConfigTests(APITestCase):
         self.assertTrue(ok)
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(payload.get("channel"), "sms")
-        self.assertEqual(payload.get("app_name"), "Azɔtɛn")
+        self.assertEqual(payload.get("app_name"), "Azɔbatɛn")
         self.assertNotIn("app_id", payload)
 
     @override_settings(
         OTP_SKIP_SMS=False,
         GETOURVOICE_API_KEY="gov-test-key",
         GETOURVOICE_APP_ID="",
-        GETOURVOICE_APP_NAME="Azɔtɛn",
+        GETOURVOICE_APP_NAME="Azɔbatɛn",
     )
     @patch("authentication.otp_service.requests.post")
     def test_send_otp_whatsapp_forced_to_sms(self, mock_post):
@@ -422,7 +422,7 @@ class OTPConfigTests(APITestCase):
         self.assertTrue(ok)
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(payload.get("channel"), "sms")
-        self.assertEqual(payload.get("app_name"), "Azɔtɛn")
+        self.assertEqual(payload.get("app_name"), "Azɔbatɛn")
         self.assertNotIn("app_id", payload)
         self.assertNotIn("via", payload)
         self.assertNotIn("provider", payload)
@@ -436,7 +436,7 @@ class OTPConfigTests(APITestCase):
         OTP_SKIP_SMS=False,
         GETOURVOICE_API_KEY="gov-test-key",
         GETOURVOICE_APP_ID="",
-        GETOURVOICE_APP_NAME="Azɔtɛn",
+        GETOURVOICE_APP_NAME="Azɔbatɛn",
     )
     @patch("authentication.views.send_otp")
     def test_register_ignores_whatsapp_channel(self, mock_send):
@@ -460,7 +460,7 @@ class OTPConfigTests(APITestCase):
         OTP_SKIP_SMS=False,
         GETOURVOICE_API_KEY="gov-test-key",
         GETOURVOICE_APP_ID="",
-        GETOURVOICE_APP_NAME="Azɔtɛn",
+        GETOURVOICE_APP_NAME="Azɔbatɛn",
     )
     @patch("authentication.views.send_otp")
     def test_register_defaults_to_sms_channel(self, mock_send):
@@ -498,7 +498,7 @@ class OTPConfigTests(APITestCase):
         OTP_SKIP_SMS=False,
         GETOURVOICE_API_KEY="gov-test-key",
         GETOURVOICE_APP_ID="",
-        GETOURVOICE_APP_NAME="Azɔtɛn",
+        GETOURVOICE_APP_NAME="Azɔbatɛn",
     )
     @patch("authentication.views.send_otp")
     def test_phone_validate_request_uses_sms_and_ignores_whatsapp(self, mock_send):
@@ -534,7 +534,7 @@ class EmailVerificationTests(APITestCase):
         self.user.verified_email = False
         self.user.save(update_fields=["verified_email"])
 
-    def test_request_sends_azotin_activation_email(self):
+    def test_request_sends_azobatin_activation_email(self):
         res = self.client.post(
             "/authentication/email-validate-request/",
             {"email": self.user.email},
@@ -545,7 +545,7 @@ class EmailVerificationTests(APITestCase):
 
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
-        self.assertIn("Azotin", message.subject)
+        self.assertIn("Azobatin", message.subject)
         self.user.refresh_from_db()
         self.assertIn(self.user.otp_code, message.body)
         self.assertIn("Activer mon compte", message.alternatives[0][0])
@@ -573,7 +573,7 @@ class EmailVerificationTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @override_settings(FRONTEND_URL="https://app.azotin.test")
+    @override_settings(FRONTEND_URL="https://app.azobatin.test")
     def test_get_activate_redirects_and_marks_verified(self):
         self.user.otp_code = "12345"
         self.user.otp_generated_at = timezone.now()
@@ -584,7 +584,7 @@ class EmailVerificationTests(APITestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_302_FOUND)
         self.assertEqual(
-            res["Location"], "https://app.azotin.test/activation-success"
+            res["Location"], "https://app.azobatin.test/activation-success"
         )
         self.user.refresh_from_db()
         self.assertTrue(self.user.verified_email)

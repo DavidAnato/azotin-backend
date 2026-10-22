@@ -1,16 +1,16 @@
 version: "3.8"
 
 services:
-  azotin-api-database:
+  azobatin-api-database:
     image: postgres:16
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - azotin-db-data:/var/lib/postgresql/data
+      - azobatin-db-data:/var/lib/postgresql/data
     networks:
-      - azotin-net-v01
+      - azobatin-net-v01
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
       interval: 10s
@@ -18,30 +18,30 @@ services:
       retries: 5
     restart: always
 
-  azotin-api:
-    image: jobhubapi:latest
+  azobatin-api:
+    image: azobatin-api:latest
     env_file:
       - .env
     ports:
       - 8000:8000
     depends_on:
-      - azotin-api-database
+      - azobatin-api-database
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.azotin.rule=Host(`azotin.api.latoure.net`)"
-      - "traefik.http.routers.azotin.entrypoints=https"
-      - "traefik.http.routers.azotin.tls=true"
-      - "traefik.http.routers.azotin.tls.certresolver=letsencrypt"
-      - "traefik.http.services.azotin.loadbalancer.server.port=8000"
-      - "traefik.http.routers.azotin.service=azotin"
+      - "traefik.http.routers.azobatin.rule=Host(`azobatin.api.latoure.net`)"
+      - "traefik.http.routers.azobatin.entrypoints=https"
+      - "traefik.http.routers.azobatin.tls=true"
+      - "traefik.http.routers.azobatin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.azobatin.loadbalancer.server.port=8000"
+      - "traefik.http.routers.azobatin.service=azobatin"
       - "traefik.docker.network=kong-net-v01"
     networks:
-      - azotin-net-v01
+      - azobatin-net-v01
       - kong-net-v01
     restart: always
 
 volumes:
-  azotin-db-data:
+  azobatin-db-data:
 networks:
-  azotin-net-v01:
+  azobatin-net-v01:
   kong-net-v01:

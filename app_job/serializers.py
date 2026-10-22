@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from app_profile.serializers import ClientProfileSerializer, WorkerProfileSerializer
 
-from jobhub_api.ai_sanitize import sanitize_ai_text
+from azobatin_api.ai_sanitize import sanitize_ai_text
 
 from .models import Category, Job, JobApplication, JobOffer, PaidService, SubCategory
 

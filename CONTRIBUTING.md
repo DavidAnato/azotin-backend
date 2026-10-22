@@ -13,8 +13,8 @@ Thank you for considering contributing to this project! This document outlines t
 1. Clone the repository:
 
    ```bash
-   git clone git@github.com:LATOURE-LABS/jobhub_api.git
-   cd jobhub_api
+   git clone git@github.com:LATOURE-LABS/azobatin_api.git
+   cd azobatin_api
 
   ```
 2. Set up environment variables:

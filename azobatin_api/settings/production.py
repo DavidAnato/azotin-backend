@@ -5,9 +5,9 @@ from .base import *  # noqa: F403, F401
 # Production settings
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = [config("ALLOWED_HOSTS", default="azotin.api.latoure.net")]
+ALLOWED_HOSTS = [config("ALLOWED_HOSTS", default="azobatin.api.latoure.net")]
 CSRF_TRUSTED_ORIGINS = [
-    config("CSRF_TRUSTED_ORIGINS", default="https://azotin.api.latoure.net")
+    config("CSRF_TRUSTED_ORIGINS", default="https://azobatin.api.latoure.net")
 ]
 
 DATABASES = {

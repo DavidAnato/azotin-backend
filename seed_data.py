@@ -1,7 +1,7 @@
 """
-Seed de développement — AZOTIN (branche dev).
+Seed de développement — AZOBATIN (branche dev).
 
-Usage (depuis jobhub_api) :
+Usage (depuis azobatin_api) :
   .\\venv\\Scripts\\python.exe seed_data.py
   .\\venv\\Scripts\\python.exe manage.py seed_data --reset
 
@@ -32,7 +32,7 @@ from urllib.parse import quote
 
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobhub_api.settings.development")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azobatin_api.settings.development")
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -95,7 +95,7 @@ DEFAULT_PASSWORD = "password123"
 
 def _safe_seed_slug(key: str, max_len: int = 56) -> str:
     s = re.sub(r"[^a-zA-Z0-9_-]", "_", str(key)).strip("_")
-    return (s or "azotin")[:max_len]
+    return (s or "azobatin")[:max_len]
 
 
 # Unsplash — scènes de travail par métier (pas de portraits)
@@ -203,7 +203,7 @@ def download_image_to_temp(url: str):
         response = requests.get(
             url,
             timeout=25,
-            headers={"User-Agent": "AzotinSeed/1.0", "Accept": "image/*"},
+            headers={"User-Agent": "AzobatinSeed/1.0", "Accept": "image/*"},
         )
         if response.status_code != 200:
             return None, None
@@ -374,7 +374,7 @@ CATEGORIES = [
 DEMO_USERS = [
     {
         "phone": "22997000000",
-        "email": "demo.mobile@azotin.local",
+        "email": "demo.mobile@azobatin.local",
         "first_name": "Demo",
         "last_name": "Mobile",
         "code_pin": "1234",
@@ -392,7 +392,7 @@ DEMO_USERS = [
     },
     {
         "phone": "22997000001",
-        "email": "amina.client@azotin.local",
+        "email": "amina.client@azobatin.local",
         "first_name": "Amina",
         "last_name": "Koffi",
         "code_pin": "1234",
@@ -408,7 +408,7 @@ DEMO_USERS = [
     },
     {
         "phone": "22997000002",
-        "email": "kofi.worker@azotin.local",
+        "email": "kofi.worker@azobatin.local",
         "first_name": "Kofi",
         "last_name": "Mensah",
         "code_pin": "5678",
@@ -426,7 +426,7 @@ DEMO_USERS = [
     },
     {
         "phone": "22997000003",
-        "email": "aicha.worker@azotin.local",
+        "email": "aicha.worker@azobatin.local",
         "first_name": "Aïcha",
         "last_name": "Diallo",
         "code_pin": "9012",
@@ -444,7 +444,7 @@ DEMO_USERS = [
     },
     {
         "phone": "22997000004",
-        "email": "jean.client@azotin.local",
+        "email": "jean.client@azobatin.local",
         "first_name": "Jean",
         "last_name": "Agbessi",
         "code_pin": "1234",
@@ -460,7 +460,7 @@ DEMO_USERS = [
     },
     {
         "phone": "22997000005",
-        "email": "marc.worker@azotin.local",
+        "email": "marc.worker@azobatin.local",
         "first_name": "Marc",
         "last_name": "Zinsou",
         "code_pin": "1234",
@@ -478,7 +478,7 @@ DEMO_USERS = [
     },
     {
         "phone": "22997000006",
-        "email": "fatou.worker@azotin.local",
+        "email": "fatou.worker@azobatin.local",
         "first_name": "Fatou",
         "last_name": "Soglo",
         "code_pin": "1234",
@@ -1006,9 +1006,9 @@ def ensure_superuser():
     user, created = User.objects.get_or_create(
         phone_number=phone,
         defaults={
-            "email": "admin@azotin.local",
+            "email": "admin@azobatin.local",
             "first_name": "Admin",
-            "last_name": "AZOTIN",
+            "last_name": "AZOBATIN",
             "is_staff": True,
             "is_superuser": True,
             "is_active": True,
@@ -1527,7 +1527,7 @@ def seed_user_notifications(users: list[User], offers: list[JobOffer]):
         (amina, "Kofi a postulé à votre offre électricité.", {"type": "new_application", "job_offer_id": offers[1].id, "applicant_name": "Kofi Mensah"}),
         (demo, "Mission assignée — livraison colis.", {"type": "job_assigned", "job_offer_id": offers[4].id}),
         (amina, "Nouveau message de Aïcha.", {"type": "new_message", "conversation_id": 1}),
-        (demo, "Bienvenue sur AZOTIN !", {"type": "new_user"}),
+        (demo, "Bienvenue sur AZOBATIN !", {"type": "new_user"}),
         (amina, "Marc a aimé votre profil travailleur.", {"type": "profile_view"}),
     ]
     for recipient, msg, obj in specs:
@@ -1556,7 +1556,7 @@ def seed_paid_service():
 @transaction.atomic
 def seed_data():
     skip_network = should_skip_network()
-    logger.info("=== Seed AZOTIN (dev) — images %s ===", "OFF" if skip_network else "ON")
+    logger.info("=== Seed AZOBATIN (dev) — images %s ===", "OFF" if skip_network else "ON")
     with mute_all_signals():
         _run_seed(skip_network)
 

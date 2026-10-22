@@ -47,17 +47,17 @@ jobs:
           ECR_URI=${{ secrets.ECR_REPOSITORY }}
 
           # Build the Docker image
-          docker build -t azotin-backend:${TAG} .
+          docker build -t azobatin-backend:${TAG} .
 
           # Tag the Docker image
-          docker tag azotin-backend:${TAG} $ECR_URI:${TAG}
+          docker tag azobatin-backend:${TAG} $ECR_URI:${TAG}
 
           # Push the Docker image to ECR
           docker push $ECR_URI:${TAG}
 
       - name: Clean up local Docker images
         run: |
-          docker image rm azotin-backend:${{ env.tag }} || true
+          docker image rm azobatin-backend:${{ env.tag }} || true
           docker image rm $ECR_URI:${{ env.tag }} || true
 
       - name: Logout from Amazon ECR

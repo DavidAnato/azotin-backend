@@ -55,7 +55,7 @@ class Migration(migrations.Migration):
             model_name="usersettings",
             name="marketing_notifications",
             field=models.BooleanField(
-                default=False, help_text="Offres et nouveautés AZƆTƐN"
+                default=False, help_text="Offres et nouveautés AZƆBATƐN"
             ),
         ),
         migrations.AddField(

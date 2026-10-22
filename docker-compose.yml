@@ -9,11 +9,11 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
     networks:
-      - jobhub_network
+      - azobatin_network
 
 volumes:
   redis_data:
 
 networks:
-  jobhub_network:
+  azobatin_network:
     driver: bridge 

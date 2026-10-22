@@ -1,8 +1,8 @@
-# AZƆTIN
+# AZƆBATIN
 
 ## Lancer le projet django
 
-1. Se rendre dans le dossier `jobhub_api`
+1. Se rendre dans le dossier `azobatin_api`
 2. Creer un environnement virtuel et installer les dépendances avec
 ```bash
 python -m venv venv

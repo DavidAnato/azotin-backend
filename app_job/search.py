@@ -10,7 +10,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 from django.db.models import Q
 
 # Expansion bidirectionnelle : chaque terme pointe vers ses équivalents.
-# Couvre les métiers seed Azotin (Bénin) + variantes courantes FR/EN.
+# Couvre les métiers seed Azobatin (Bénin) + variantes courantes FR/EN.
 _JOB_SYNONYMS = {
     # Plomberie
     "plombier": ["plumber", "plomberie", "fuite", "robinet", "sanitaire", "canalisation", "wc", "chauffe eau"],

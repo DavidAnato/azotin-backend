@@ -147,8 +147,8 @@ def _fedapay_payout_mode(phone: str) -> str:
 def _fedapay_customer_for_user(user, phone: str) -> dict:
     return {
         "firstname": user.first_name or "Utilisateur",
-        "lastname": user.last_name or "Azotin",
-        "email": user.email or f"user{user.id}@azotin.app",
+        "lastname": user.last_name or "Azobatin",
+        "email": user.email or f"user{user.id}@azobatin.app",
         "phone_number": _fedapay_payout_phone(phone),
     }
 
@@ -312,8 +312,8 @@ def fund_contract(contract: Contract, user, callback_url: str) -> tuple[Contract
     amount = int(contract.amount)
     customer = {
         "firstname": user.first_name or "Client",
-        "lastname": user.last_name or "Azotin",
-        "email": user.email or f"user{user.id}@azotin.local",
+        "lastname": user.last_name or "Azobatin",
+        "email": user.email or f"user{user.id}@azobatin.local",
         "phone_number": _normalize_phone(getattr(user, "phone_number", "") or ""),
     }
 
@@ -656,7 +656,7 @@ def _execute_fedapay_payout(withdrawal: Withdrawal, user) -> Withdrawal:
     try:
         payout = fedapay_service.create_payout(
             amount=int(withdrawal.amount),
-            description=f"Retrait AZOTIN #{withdrawal.id}",
+            description=f"Retrait AZOBATIN #{withdrawal.id}",
             customer=customer,
             currency=wallet.currency or "XOF",
             mode=mode,

@@ -9,7 +9,7 @@ class Command(BaseCommand):
         User = get_user_model()
         if not User.objects.filter(is_superuser=True).exists():
             first_name = "Admin"
-            email = "admin@azotin.com"
+            email = "admin@azobatin.com"
             phone_number = "1234567890"
             password = "adminpassword"
             code_pin = "0000"

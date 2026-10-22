@@ -1,5 +1,5 @@
 """
-URL configuration for jobhub_api project.
+URL configuration for azobatin_api project.
 """
 
 from django.conf import settings
@@ -18,11 +18,11 @@ from app_escrow.urls import (
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Azotin API",
+        title="Azobatin API",
         default_version="v1",
-        description="API documentation for Azotin",
+        description="API documentation for Azobatin",
         terms_of_service="https://www.google.com/policies/terms/",
-        contact=openapi.Contact(email="contact@azotin.local"),
+        contact=openapi.Contact(email="contact@azobatin.local"),
         license=openapi.License(name="BSD License"),
     ),
     public=True,

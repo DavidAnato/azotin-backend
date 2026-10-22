@@ -971,7 +971,7 @@ class DeleteAccountView(APIView):
 
         stamp = timezone.now().strftime("%Y%m%d%H%M%S")
         user.is_active = False
-        user.email = f"deleted+{user.id}+{stamp}@deleted.azotin.local"
+        user.email = f"deleted+{user.id}+{stamp}@deleted.azobatin.local"
         user.phone_number = f"d{user.id}{stamp}"[:20]
         user.username = f"deleted_{user.id}_{stamp}"[:100]
         user.first_name = "Utilisateur"

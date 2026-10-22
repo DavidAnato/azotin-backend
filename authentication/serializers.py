@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from authentication.models import Review, UserSettings
 from authentication.otp_service import DEFAULT_OTP_CHANNEL, OTP_CHANNELS
-from jobhub_api.ai_sanitize import sanitize_ai_text
+from azobatin_api.ai_sanitize import sanitize_ai_text
 
 User = get_user_model()
 

@@ -15,7 +15,7 @@ def _from_email():
     return (
         getattr(settings, "DEFAULT_FROM_EMAIL", None)
         or getattr(settings, "EMAIL_HOST_USER", None)
-        or "Azotin <noreply@azotin.local>"
+        or "Azobatin <noreply@azobatin.local>"
     )
 
 
@@ -116,7 +116,7 @@ def send_password_reset_email(email, otp_code):
     html_content = render_to_string("emails/password_reset.html", context)
     text_content = render_to_string("emails/password_reset.txt", context)
     return _send_html_email(
-        "Réinitialisation de votre mot de passe Azotin",
+        "Réinitialisation de votre mot de passe Azobatin",
         email,
         html_content,
         text_content,
@@ -136,7 +136,7 @@ def send_activation_email(email, otp_code, activation_link):
     html_content = render_to_string("emails/activation.html", context)
     text_content = render_to_string("emails/activation.txt", context)
     return _send_html_email(
-        "Activez votre compte Azotin",
+        "Activez votre compte Azobatin",
         email,
         html_content,
         text_content,

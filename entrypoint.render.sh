@@ -18,4 +18,4 @@ fi
 
 PORT="${PORT:-8000}"
 echo "Starting Gunicorn on 0.0.0.0:${PORT}..."
-exec gunicorn --bind "0.0.0.0:${PORT}" --workers "${WEB_CONCURRENCY:-2}" jobhub_api.wsgi:application
+exec gunicorn --bind "0.0.0.0:${PORT}" --workers "${WEB_CONCURRENCY:-2}" azobatin_api.wsgi:application

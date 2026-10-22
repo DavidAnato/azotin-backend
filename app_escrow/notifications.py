@@ -37,7 +37,7 @@ def notify_user(
     if not settings.notification_push:
         return
 
-    title = push_title or "AZOTIN"
+    title = push_title or "AZOBATIN"
     tokens = NotificationToken.objects.filter(user=user)
     data = _push_data(meta)
     for token in tokens:

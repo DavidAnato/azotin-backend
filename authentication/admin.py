@@ -6,9 +6,9 @@ from django.utils.html import format_html
 
 from .models import KycSubmission, Review, User, UserSettings
 
-admin.site.site_header = "Administration Azotin"
-admin.site.site_title = "Azotin Admin"
-admin.site.index_title = "Bienvenue sur l'interface d'administration d'Azotin"
+admin.site.site_header = "Administration Azobatin"
+admin.site.site_title = "Azobatin Admin"
+admin.site.index_title = "Bienvenue sur l'interface d'administration d'Azobatin"
 
 
 class ReviewInline(admin.TabularInline):

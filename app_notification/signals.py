@@ -42,7 +42,7 @@ def notify_new_user(sender, instance, created, **kwargs):
             run_coroutine_sync(
                 send_push_notification(
                     token=token.token,
-                    title="Bienvenue sur Azotin !",
+                    title="Bienvenue sur Azobatin !",
                     body="Bienvenue sur notre plateforme ! 🎉",
                     data={
                         "type": "new_user",

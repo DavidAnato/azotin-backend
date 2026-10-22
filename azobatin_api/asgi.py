@@ -1,10 +1,10 @@
 """
-ASGI config for jobhub_api project.
+ASGI config for azobatin_api project.
 """
 
 import os
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobhub_api.settings.development")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azobatin_api.settings.development")
 
 import django  # noqa: E402
 

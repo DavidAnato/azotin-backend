@@ -209,7 +209,7 @@ def send_sms_if_configured(phone_number: str, message: str) -> None:
         phone_number,
         message,
         api_key,
-        sender_name="AZOTIN",
+        sender_name="AZOBATIN",
     )
 
 
@@ -284,7 +284,7 @@ def send_email_async(email: str, message: str, subject: str = "Notification") ->
     from_email = (
         getattr(settings, "DEFAULT_FROM_EMAIL", None)
         or getattr(settings, "EMAIL_HOST_USER", None)
-        or "Azotin <noreply@azotin.local>"
+        or "Azobatin <noreply@azobatin.local>"
     )
     email_message = EmailMultiAlternatives(
         subject=subject,

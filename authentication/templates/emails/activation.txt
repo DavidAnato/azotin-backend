@@ -1,8 +1,8 @@
-Bienvenue sur Azotin
+Bienvenue sur Azobatin
 
 Votre code d'activation : {{ otp_code }}
 
 Activer mon compte : {{ activation_link }}
 
 Cordialement,
-L'équipe Azotin
+L'équipe Azobatin

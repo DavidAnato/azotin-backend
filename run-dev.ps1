@@ -4,7 +4,7 @@
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
-$env:DJANGO_SETTINGS_MODULE = "jobhub_api.settings.development"
+$env:DJANGO_SETTINGS_MODULE = "azobatin_api.settings.development"
 
 $uvicorn = ".\venv\Scripts\uvicorn.exe"
 if (-not (Test-Path $uvicorn)) {
@@ -13,4 +13,4 @@ if (-not (Test-Path $uvicorn)) {
 }
 
 Write-Host "Demarrage sur http://0.0.0.0:8000 (reload actif)..."
-& $uvicorn jobhub_api.asgi:application --host 0.0.0.0 --port 8000 --reload
+& $uvicorn azobatin_api.asgi:application --host 0.0.0.0 --port 8000 --reload

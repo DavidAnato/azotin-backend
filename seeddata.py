@@ -32,7 +32,7 @@ def _should_run_seed(reset: bool) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Seed données de démonstration AZOTIN.")
+    parser = argparse.ArgumentParser(description="Seed données de démonstration AZOBATIN.")
     parser.add_argument(
         "--reset",
         action="store_true",

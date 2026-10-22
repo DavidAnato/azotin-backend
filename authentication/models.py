@@ -270,7 +270,7 @@ class UserSettings(models.Model):
         default=True, help_text="Retours haptiques"
     )
     marketing_notifications = models.BooleanField(
-        default=False, help_text="Offres et nouveautés AZƆTƐN"
+        default=False, help_text="Offres et nouveautés AZƆBATƐN"
     )
     language = models.CharField(
         max_length=10,

@@ -1,5 +1,5 @@
 """
-Modèles Escrow AZOTIN — contrats sous séquestre + portefeuille.
+Modèles Escrow AZOBATIN — contrats sous séquestre + portefeuille.
 """
 
 from decimal import Decimal
