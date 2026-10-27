@@ -1,29 +1,17 @@
 #!/bin/sh
-# Entrypoint Docker / production.
-# Variables optionnelles :
-#   ALLOW_FLUSH=1   — flush DB (démons éphémères uniquement, JAMAIS en prod)
-#   SKIP_SEED=1     — désactive le seed automatique
-#   PORT            — port d'écoute (défaut 8000 ; Render injecte $PORT)
-set -e
+# Single-instance VPS startup: migrate, collect static assets, then serve ASGI.
+set -eu
 
-if [ "${ALLOW_FLUSH:-0}" = "1" ]; then
-  echo "ALLOW_FLUSH=1 — flush de la base (démo éphémère uniquement)..."
-  python manage.py flush --noinput
-fi
+export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-azobatin_api.settings.production}"
 
-echo "Running database migrations..."
 python manage.py migrate --noinput
-
-echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-if [ "${SKIP_SEED:-0}" = "1" ]; then
-  echo "SKIP_SEED=1 — seeddata ignoré."
-else
-  echo "seeddata automatique..."
-  python manage.py seeddata
-fi
-
 PORT="${PORT:-8000}"
-echo "Starting Gunicorn on 0.0.0.0:${PORT}..."
-exec gunicorn --bind "0.0.0.0:${PORT}" azobatin_api.wsgi:application
+echo "Starting ASGI server on 0.0.0.0:${PORT}..."
+exec uvicorn azobatin_api.asgi:application \
+  --host 0.0.0.0 \
+  --port "${PORT}" \
+  --workers "${WEB_CONCURRENCY:-2}" \
+  --proxy-headers \
+  --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-*}"

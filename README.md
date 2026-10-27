@@ -1,34 +1,21 @@
-# AZƆBATIN
+# AZƆBATIN API
 
-## Lancer le projet django
+## Développement local
 
-1. Se rendre dans le dossier `azobatin_api`
-2. Creer un environnement virtuel et installer les dépendances avec
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-3. Faire la migration des models avec
-```bash
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python manage.py migrate
-```
-4. Lancer le serveur avec
-```bash
 python manage.py runserver 0.0.0.0:8000
 ```
 
-## Seed (automatique)
+Sous Linux/macOS, active `.venv/bin/activate`. La configuration de développement est sélectionnée par `manage.py`.
 
-Le dashboard Render peut appeler `python seeddata.py` après `collectstatic`,
-et l’entrypoint lance aussi `manage.py seeddata` au démarrage.
+## Déploiement sur VPS
 
-Désactiver : `SKIP_SEED=1`
+Lire [`deploy/README.md`](deploy/README.md). PostgreSQL, Redis, ASGI/WebSockets et les fichiers médias sont persistés avec Docker Compose. Le service ne crée aucun compte ni jeu de données par défaut ; créer le premier administrateur avec la commande Django `createsuperuser`.
 
-Manuel :
+## Qualité
 
-```bash
-python manage.py seeddata
-python manage.py seeddata --reset
-python seeddata.py --reset
-```
+GitHub Actions lance les tests Django, `check`, la détection de migrations, Flake8, Black, isort et mypy sur `main`, `develop` et les pull requests.

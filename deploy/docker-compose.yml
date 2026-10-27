@@ -1,47 +1,66 @@
-version: "3.8"
-
 services:
-  azobatin-api-database:
-    image: postgres:16
+  db:
+    image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:?Set DB_NAME in .env}
+      POSTGRES_USER: ${DB_USER:?Set DB_USER in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     volumes:
-      - azobatin-db-data:/var/lib/postgresql/data
-    networks:
-      - azobatin-net-v01
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
-      retries: 5
-    restart: always
+      retries: 10
+    restart: unless-stopped
 
-  azobatin-api:
-    image: azobatin-api:latest
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
     env_file:
-      - .env
-    ports:
-      - 8000:8000
+      - ../.env
+    environment:
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      PORT: 8000
+      DJANGO_SETTINGS_MODULE: azobatin_api.settings.production
     depends_on:
-      - azobatin-api-database
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.azobatin.rule=Host(`azobatin.api.latoure.net`)"
-      - "traefik.http.routers.azobatin.entrypoints=https"
-      - "traefik.http.routers.azobatin.tls=true"
-      - "traefik.http.routers.azobatin.tls.certresolver=letsencrypt"
-      - "traefik.http.services.azobatin.loadbalancer.server.port=8000"
-      - "traefik.http.routers.azobatin.service=azobatin"
-      - "traefik.docker.network=kong-net-v01"
-    networks:
-      - azobatin-net-v01
-      - kong-net-v01
-    restart: always
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz/', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
 
 volumes:
-  azobatin-db-data:
-networks:
-  azobatin-net-v01:
-  kong-net-v01:
+  postgres_data:
+  redis_data:
+  media_data:
+  static_data:

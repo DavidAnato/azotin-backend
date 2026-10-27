@@ -5,6 +5,7 @@ URL configuration for azobatin_api project.
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
@@ -30,6 +31,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    path("healthz/", lambda request: JsonResponse({"status": "ok"}), name="healthz"),
     path("admin/", admin.site.urls),
     path("", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     path(
@@ -48,4 +50,5 @@ urlpatterns = [
     path("wallet/", include(wallet_urlpatterns)),
     path("api/payments/", include(payments_urlpatterns)),
 ]
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

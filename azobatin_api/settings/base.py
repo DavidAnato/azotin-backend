@@ -83,6 +83,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # corsheaders middleware
     "corsheaders.middleware.CorsMiddleware",
@@ -91,7 +92,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
 ROOT_URLCONF = "azobatin_api.urls"
@@ -189,8 +189,12 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=99999),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=99999),
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=config("JWT_ACCESS_TOKEN_MINUTES", default=15, cast=int)
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=config("JWT_REFRESH_TOKEN_DAYS", default=7, cast=int)
+    ),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
@@ -210,12 +214,16 @@ SIMPLE_JWT = {
     "TOKEN_TYPE_CLAIM": "token_type",
     "JTI_CLAIM": "jti",
     "SLIDING_TOKEN_REFRESH_EXP_CLAIM": "refresh_exp",
-    "SLIDING_TOKEN_LIFETIME": timedelta(days=99999),
-    "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=99999),
+    "SLIDING_TOKEN_LIFETIME": timedelta(
+        minutes=config("JWT_ACCESS_TOKEN_MINUTES", default=15, cast=int)
+    ),
+    "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(
+        days=config("JWT_REFRESH_TOKEN_DAYS", default=7, cast=int)
+    ),
 }
 
 # cors headers
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # SMTP — hôte via EMAIL_HOST (Gmail, Mailgun, SES, OVH, etc.)

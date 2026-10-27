@@ -5,5 +5,14 @@ __pycache__/
 .env
 *.sqlite3
 *.log
+media/
+staticfiles/
+.git/
+.github/
+.env*
+*.sqlite3*
+credentials.json
+*-firebase-adminsdk-*.json
+google-services.json
 node_modules/
 venv/

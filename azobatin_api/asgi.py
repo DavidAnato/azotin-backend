@@ -4,7 +4,7 @@ ASGI config for azobatin_api project.
 
 import os
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azobatin_api.settings.development")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azobatin_api.settings.production")
 
 import django  # noqa: E402
 
